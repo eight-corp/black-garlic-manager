@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>黒にんにく管理</title>
-  <link rel="stylesheet" href="./styles.css?v=20260713-bracket-batch-rename">
+  <link rel="stylesheet" href="./styles.css?v=20260909-main-date-weekday">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -63,7 +63,10 @@
       </div>
       <form id="mainForm" class="form-grid main-form-grid">
         <input id="mainEntryId" type="hidden">
-        <label>日付<input id="mainDate" type="date" required></label>
+        <label class="main-date-field">
+          <span class="field-label">日付<span id="mainDateWeekday" class="weekday-inline"></span></span>
+          <input id="mainDate" type="date" required>
+        </label>
         <label>種別<select id="mainType" required></select></label>
         <label>室名<select id="mainRoom" required></select></label>
         <label>温度<input id="mainTemperature" type="number" step="0.1" inputmode="decimal"></label>
@@ -186,6 +189,6 @@
   </main>
 
   <div id="toast" class="toast hidden"></div>
-  <script src="./app.js?v=20260713-bracket-batch-rename"></script>
+  <script src="./app.js?v=20260909-main-date-weekday"></script>
 </body>
 </html>

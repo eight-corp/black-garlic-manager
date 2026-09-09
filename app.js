@@ -86,6 +86,7 @@
     });
     $("mainClearBtn").addEventListener("click", clearMainForm);
     $("mainDate").addEventListener("change", () => {
+      updateMainDateWeekday();
       loadMainRecordByKey();
     });
     $("mainType").addEventListener("change", () => {
@@ -587,6 +588,7 @@
     if (!row) return;
     $("mainEntryId").value = row.id;
     $("mainDate").value = row.entry_date;
+    updateMainDateWeekday();
     $("mainType").value = row.type_id;
     $("mainRoom").value = row.room_id;
     $("mainTemperature").value = row.temperature ?? "";
@@ -1447,6 +1449,12 @@
     $("graphEndDate").value = dateToStr(addDays(parseYmd(today), 1));
     $("predictionStartDate").value = dateToStr(addDays(parseYmd(today), -7));
     $("predictionEndDate").value = dateToStr(addDays(parseYmd(today), 30));
+    updateMainDateWeekday();
+  }
+
+  function updateMainDateWeekday() {
+    const value = $("mainDate").value;
+    $("mainDateWeekday").textContent = value ? `（${weekdayLabel(value)}）` : "";
   }
 
   function moveDate(id, delta) {

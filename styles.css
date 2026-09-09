@@ -178,6 +178,17 @@ label {
   color: var(--muted);
 }
 
+.field-label {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  min-width: 0;
+}
+
+.weekday-inline {
+  color: var(--ink);
+}
+
 input,
 select,
 textarea,
