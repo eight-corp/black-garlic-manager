@@ -611,7 +611,7 @@
   function renderMainHistory() {
     const date = $("mainHistoryDate").value;
     const typeId = $("mainHistoryType").value;
-    $("mainHistoryWeekday").value = weekdayLabel(date);
+    updateDateWeekday("mainHistoryDate", "mainHistoryDateWeekday");
     const rows = state.data.entries
       .filter(row => row.entry_date === date && matchesFilters(row, typeId, "All"))
       .sort((a, b) => compareDisplay(roomName(a.room_id), roomName(b.room_id)) || compareDisplay(typeName(a.type_id), typeName(b.type_id)));
@@ -732,7 +732,7 @@
   function renderStorageHistory() {
     const date = $("storageHistoryDate").value;
     const typeId = $("storageHistoryType").value;
-    $("storageHistoryWeekday").value = weekdayLabel(date);
+    updateDateWeekday("storageHistoryDate", "storageHistoryDateWeekday");
     const rows = state.data.storageEntries
       .filter(row => row.storage_date === date && isVisibleStorageEntry(row) && (typeId === "All" || !typeId || row.storage_type_id === typeId))
       .sort((a, b) => compareDisplay(storageTypeName(a.storage_type_id), storageTypeName(b.storage_type_id)));
@@ -1068,24 +1068,29 @@
   }
 
   function renderMaster() {
-    renderRoomAndTypeMaster();
+    const openSections = new Set(
+      $$("#masterRooms details.master-section[open]")
+        .map(section => section.dataset.masterSection)
+        .filter(Boolean)
+    );
+    renderRoomAndTypeMaster(openSections);
     fitResponsiveTables($("masterPanel"));
     createIcons();
   }
 
-  function renderRoomAndTypeMaster() {
+  function renderRoomAndTypeMaster(openSections = new Set()) {
     $("masterRooms").innerHTML = `
-      ${simpleMasterHtml("rooms", "room_name", "室名", true)}
-      ${simpleMasterHtml("types", "type_name", "室種別", true)}
-      ${simpleMasterHtml("storageTypes", "type_name", "保管庫種別", true)}
-      ${maturationMasterHtml()}
+      ${simpleMasterHtml("rooms", "room_name", "室名", true, openSections)}
+      ${simpleMasterHtml("types", "type_name", "室種別", true, openSections)}
+      ${simpleMasterHtml("storageTypes", "type_name", "保管庫種別", true, openSections)}
+      ${maturationMasterHtml(openSections)}
     `;
   }
 
-  function simpleMasterHtml(draftKey, nameKey, label, showVisibility) {
+  function simpleMasterHtml(draftKey, nameKey, label, showVisibility, openSections) {
     const rows = state.drafts[draftKey] || [];
     return `
-      <details class="master-section">
+      <details class="master-section" data-master-section="${draftKey}" ${openSections.has(draftKey) ? "open" : ""}>
         <summary>${esc(label)}マスタ</summary>
         <div class="master-body">
           <div class="master-list">
@@ -1106,7 +1111,7 @@
     `;
   }
 
-  function maturationMasterHtml() {
+  function maturationMasterHtml(openSections) {
     const brackets = state.drafts.brackets || [];
     const bracketEditor = `
       <div class="master-subtitle">収穫からの経過日数区分</div>
@@ -1149,7 +1154,7 @@
     `;
 
     return `
-      <details class="master-section maturation-master-section">
+      <details class="master-section maturation-master-section" data-master-section="maturation" ${openSections.has("maturation") ? "open" : ""}>
         <summary>熟成日数表</summary>
         <div class="master-body">
           ${bracketEditor}
@@ -1212,6 +1217,7 @@
 
   async function saveMaster() {
     collectMasterInputs();
+    validateMasterDrafts();
     await withBusy($("masterSaveBtn"), async () => {
       await saveSimpleDraft("rooms", TABLES.rooms, "room_name", isRoomUsed);
       await saveSimpleDraft("types", TABLES.types, "type_name", isTypeUsed);
@@ -1225,8 +1231,33 @@
     });
   }
 
+  function validateMasterDrafts() {
+    validateSimpleMasterDraft("rooms", "room_name", "室名", isRoomUsed);
+    validateSimpleMasterDraft("types", "type_name", "室種別", isTypeUsed);
+    validateSimpleMasterDraft("storageTypes", "type_name", "保管庫種別", isStorageTypeUsed);
+    assertNoDuplicateDraftNames(state.drafts.brackets, "label", "区分名");
+  }
+
+  function validateSimpleMasterDraft(draftKey, nameKey, label, usedFn) {
+    assertNoDuplicateDraftNames(state.drafts[draftKey], nameKey, label);
+    const keptIds = new Set(
+      state.drafts[draftKey]
+        .filter(row => String(row[nameKey] || "").trim())
+        .map(row => row.id)
+        .filter(Boolean)
+    );
+    state.data[draftKey].forEach(row => {
+      if (!keptIds.has(row.id) && usedFn(row.id)) {
+        throw new Error(`使用中の${label}は削除できません: ${row[nameKey]}`);
+      }
+    });
+  }
+
   async function saveSimpleDraft(draftKey, table, nameKey, usedFn) {
     const originalIds = new Set(state.data[draftKey].map(row => row.id));
+    const originalById = new Map(state.data[draftKey].map(row => [row.id, row]));
+    const masterLabel = draftKey === "rooms" ? "室名" : draftKey === "types" ? "室種別" : "保管庫種別";
+    assertNoDuplicateDraftNames(state.drafts[draftKey], nameKey, masterLabel);
     const rows = uniqueDraftRows(state.drafts[draftKey], nameKey).map((row, index) => ({
       ...row,
       [nameKey]: String(row[nameKey] || "").trim(),
@@ -1234,15 +1265,53 @@
       active: row.active !== false
     }));
     const keptIds = new Set(rows.filter(row => row.id).map(row => row.id));
-    for (const id of originalIds) {
-      if (!keptIds.has(id)) {
-        if (usedFn(id)) throw new Error(`使用中の項目は削除できません: ${id}`);
-        await assertOk(state.client.from(table).delete().eq("id", id));
+    const removedIds = [...originalIds].filter(id => !keptIds.has(id));
+    for (const id of removedIds) {
+      if (usedFn(id)) {
+        const original = originalById.get(id);
+        throw new Error(`使用中の${masterLabel}は削除できません: ${original ? original[nameKey] : id}`);
       }
     }
+    for (const id of removedIds) {
+      await assertOk(state.client.from(table).delete().eq("id", id));
+    }
+
+    const changedExistingRows = rows.filter(row => {
+      const original = row.id ? originalById.get(row.id) : null;
+      return original && original[nameKey] !== row[nameKey];
+    });
+    const usedTempNames = new Set([
+      ...state.data[draftKey].map(row => row[nameKey]),
+      ...rows.map(row => row[nameKey])
+    ]);
+    for (const row of changedExistingRows) {
+      const temporaryName = temporaryMasterName(draftKey, row.id, usedTempNames);
+      await assertOk(state.client.from(table).update({ [nameKey]: temporaryName }).eq("id", row.id));
+    }
+
     for (const row of rows) {
-      if (!row[nameKey]) continue;
-      await assertOk(state.client.from(table).upsert(row));
+      const payload = {
+        [nameKey]: row[nameKey],
+        display_order: row.display_order,
+        active: row.active
+      };
+      if (row.id) {
+        await assertOk(state.client.from(table).update(payload).eq("id", row.id));
+      } else {
+        await assertOk(state.client.from(table).insert(payload));
+      }
+    }
+  }
+
+  function temporaryMasterName(draftKey, id, usedNames) {
+    let index = 0;
+    while (true) {
+      const name = `__tmp_${draftKey}_${Date.now()}_${String(id || "").slice(0, 8)}_${index}__`;
+      if (!usedNames.has(name)) {
+        usedNames.add(name);
+        return name;
+      }
+      index += 1;
     }
   }
 
@@ -1324,9 +1393,20 @@
 
   async function saveMaturationRules() {
     const inputs = $$("[data-rule-room][data-rule-bracket]");
+    const keptRoomIds = new Set(
+      state.drafts.rooms
+        .filter(row => row.id && String(row.room_name || "").trim())
+        .map(row => row.id)
+    );
+    const keptBracketIds = new Set(
+      state.drafts.brackets
+        .filter(row => row.id && String(row.label || "").trim())
+        .map(row => row.id)
+    );
     for (const input of inputs) {
       const roomId = input.dataset.ruleRoom;
       const bracketId = input.dataset.ruleBracket;
+      if (!keptRoomIds.has(roomId) || !keptBracketIds.has(bracketId)) continue;
       if (input.value === "") {
         await assertOk(state.client.from(TABLES.rules).delete().eq("room_id", roomId).eq("age_bracket_id", bracketId));
       } else {
@@ -1450,11 +1530,17 @@
     $("predictionStartDate").value = dateToStr(addDays(parseYmd(today), -7));
     $("predictionEndDate").value = dateToStr(addDays(parseYmd(today), 30));
     updateMainDateWeekday();
+    updateDateWeekday("mainHistoryDate", "mainHistoryDateWeekday");
+    updateDateWeekday("storageHistoryDate", "storageHistoryDateWeekday");
   }
 
   function updateMainDateWeekday() {
-    const value = $("mainDate").value;
-    $("mainDateWeekday").textContent = value ? `（${weekdayLabel(value)}）` : "";
+    updateDateWeekday("mainDate", "mainDateWeekday");
+  }
+
+  function updateDateWeekday(dateInputId, weekdayOutputId) {
+    const value = $(dateInputId).value;
+    $(weekdayOutputId).textContent = value ? `（${weekdayLabel(value)}）` : "";
   }
 
   function moveDate(id, delta) {
