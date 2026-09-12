@@ -507,6 +507,8 @@ async function run() {
     await graph.page.goto(appUrl); await unlocked(graph.page);
     await graph.page.locator('[data-tab="summary"]').click();
     await graph.page.locator('[data-summary-view="graph"]').click();
+    assert.deepEqual(await graph.page.locator('.graph-series-controls select').evaluateAll(selects => selects.map(select => select.value)), ['bar', 'bar', 'line']);
+    assert.deepEqual(await graph.page.locator('#summaryChart').evaluate(canvas => Chart.getChart(canvas).data.datasets.map((dataset, index) => Chart.getChart(canvas).getDatasetMeta(index).type)), ['bar', 'bar', 'line']);
     await graph.page.locator('#graphStartDate').fill('2026-09-10');
     await graph.page.locator('#graphEndDate').fill('2026-09-12');
     await graph.page.locator('#graphRefreshBtn').click();
