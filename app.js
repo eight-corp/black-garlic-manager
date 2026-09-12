@@ -739,6 +739,8 @@
     const rows = state.data.storageEntries
       .filter(row => row.storage_date === date && isVisibleStorageEntry(row) && (typeId === "All" || !typeId || row.storage_type_id === typeId))
       .sort((a, b) => compareDisplay(storageTypeName(a.storage_type_id), storageTypeName(b.storage_type_id)));
+    const totalColumns16 = sum(rows, "columns16");
+    const totalPieces = sum(rows, "pieces");
     const body = rows.map(row => `
       <tr class="clickable" data-storage-id="${esc(row.id)}">
         <td class="text-left">${esc(fmtDate(row.storage_date))}</td>
@@ -746,15 +748,14 @@
         <td class="text-left">${esc(storageTypeName(row.storage_type_id))}</td>
         <td>${num(row.columns16, 0)}</td>
         <td>${num(row.pieces, 0)}</td>
-        <td>${num(storageColumns(row))}</td>
         <td class="text-left">${esc(row.note || "")}</td>
         <td class="action-cell"><button type="button" class="danger icon-btn row-delete-btn" data-storage-delete="${esc(row.id)}" title="削除"><i data-lucide="trash-2"></i></button></td>
       </tr>
     `).join("");
     $("storageHistory").innerHTML = `
       <table>
-        <thead><tr><th>日付</th><th>作業者</th><th>種別</th><th>16段</th><th>端数</th><th>列換算</th><th>備考</th><th>削除</th></tr></thead>
-        <tbody>${body || emptyRow(8)}</tbody>
+        <thead><tr><th>日付</th><th>作業者</th><th>種別</th><th>16段</th><th>端数</th><th>備考</th><th>削除</th></tr></thead>
+        <tbody>${body || emptyRow(7)}<tr class="total-row"><td colspan="3">合計</td><td>${num(totalColumns16, 0)}</td><td>${num(totalPieces, 0)}</td><td></td><td></td></tr></tbody>
       </table>
     `;
     $("storageHistory").querySelectorAll("[data-storage-delete]").forEach(button => {
