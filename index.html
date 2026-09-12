@@ -4,35 +4,19 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>黒にんにく管理</title>
-  <link rel="stylesheet" href="./styles.css?v=20260912-compact-storage-row">
+  <link rel="stylesheet" href="./styles.css?v=20260912-menu-login">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://eight-corp.github.io/garlic-liff-scanner/shared/business-auth.js?v=20260912-black-garlic-menu"></script>
   <script src="./config.js"></script>
 </head>
 <body class="login-locked">
-  <section id="setupPanel" class="setup-panel hidden">
-    <div class="login-card">
-      <h1>Supabase設定</h1>
-      <p class="muted">GitHub Pagesで使う前に、SupabaseのURLとanon keyを設定してください。入力値はこの端末だけに保存されます。</p>
-      <label>Supabase URL<input id="setupUrl" type="url" autocomplete="off" placeholder="https://xxxxx.supabase.co"></label>
-      <label>Anon key<input id="setupKey" type="password" autocomplete="off" placeholder="eyJ..."></label>
-      <div class="action-row">
-        <button id="saveSetupBtn" type="button"><i data-lucide="save"></i><span>保存して接続</span></button>
-      </div>
-    </div>
-  </section>
-
   <section id="loginPanel" class="login-screen">
     <div class="login-card">
       <h1>黒にんにく管理</h1>
-      <p class="muted">作業者を選択してください。</p>
-      <label>作業者<select id="loginWorkerSelect"></select></label>
-      <label id="loginPinLabel" class="hidden">PIN<input id="loginPin" type="password" inputmode="numeric" autocomplete="off"></label>
-      <div class="action-row">
-        <button id="loginBtn" type="button"><i data-lucide="log-in"></i><span>開始</span></button>
-      </div>
-      <p id="loginMessage" class="notice"></p>
+      <p id="loginMessage" class="notice" role="status">ログイン状態を確認しています。</p>
+      <a href="https://eight-corp.github.io/garlic-liff-scanner/menu.html?openExternalBrowser=1">メニューに戻る</a>
     </div>
   </section>
 
@@ -40,9 +24,10 @@
     <div class="header-row">
       <h1>黒にんにく管理</h1>
       <div class="worker-bar">
-        <label class="worker-select-label"><span>作業者</span><select id="workerSelect"></select></label>
-        <button id="reloadBtn" type="button" class="secondary header-btn"><i data-lucide="refresh-cw"></i><span>更新</span></button>
-        <button id="logoutBtn" type="button" class="secondary header-btn"><i data-lucide="log-out"></i><span>終了</span></button>
+        <div class="current-worker"><strong id="currentWorker"></strong><span id="currentRole"></span></div>
+        <button id="menuBtn" type="button" class="secondary header-btn" title="メニューに戻る"><i data-lucide="house"></i><span>メニュー</span></button>
+        <button id="reloadBtn" type="button" class="secondary header-btn" title="更新"><i data-lucide="refresh-cw"></i><span>更新</span></button>
+        <button id="logoutBtn" type="button" class="secondary header-btn" title="ログアウト"><i data-lucide="log-out"></i><span>ログアウト</span></button>
       </div>
     </div>
   </header>
@@ -200,6 +185,6 @@
   </main>
 
   <div id="toast" class="toast hidden"></div>
-  <script src="./app.js?v=20260912-storage-date-weekday"></script>
+  <script src="./app.js?v=20260912-menu-login"></script>
 </body>
 </html>

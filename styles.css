@@ -83,22 +83,18 @@ h2 {
   margin-left: auto;
 }
 
-.worker-select-label {
+.current-worker {
   display: grid;
-  grid-template-columns: auto minmax(96px, 1fr);
   align-items: center;
-  gap: 5px;
+  gap: 1px;
   flex: 1 1 auto;
   max-width: 180px;
   min-width: 0;
   font-size: 12px;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
-.worker-select-label select {
-  width: 100%;
-  min-height: 36px;
-  padding: 6px 8px;
+.current-worker strong {
   font-size: 13px;
 }
 
@@ -349,7 +345,7 @@ button svg {
   bottom: 0;
   z-index: 30;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--tab-count, 5), minmax(0, 1fr));
   gap: 4px;
   padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
   background: rgba(255, 255, 255, .96);

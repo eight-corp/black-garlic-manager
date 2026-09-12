@@ -10,6 +10,7 @@ Google Apps Script版の機能を、GitHub Pagesで配信できる静的HTMLとS
 - `config.js` - Supabase URL / anon key の固定設定
 - `supabase/schema.sql` - テーブル、初期データ、RLS、権限
 - `supabase/rpc.sql` - 在庫再計算、在庫監査などの補助RPC
+- `supabase/common-auth.sql` - 共通ログインの書き込み権限チェック
 
 ## 初期設定
 
@@ -24,7 +25,20 @@ window.APP_CONFIG = {
 };
 ```
 
-`config.js` を空のままにした場合は、初回表示時にブラウザ上でURLとanon keyを入力できます。その場合はその端末のlocalStorageにだけ保存されます。
+接続設定は `config.js` の固定設定を使用します。端末ごとの接続設定画面はありません。
+
+## 共通メニューからのログイン
+
+- [業務管理メニュー](https://eight-corp.github.io/garlic-liff-scanner/menu.html?openExternalBrowser=1) で作業者と共通PINを使ってログインし、室管理を開きます。
+- 室管理は共通セッションをサーバーで検証し、その作業者を登録者として使用します。独自PIN保存や作業者切り替えはありません。
+- 未ログイン、期限切れ、利用権限がない場合はメニューに戻ります。
+- 「メニュー」はログインを維持して戻り、「ログアウト」は共通セッションを破棄して戻ります。
+- 閲覧者は履歴・集計・予測の閲覧、作業者は登録・編集・削除と予測設定、管理者はさらにマスタ編集を行えます。
+- 共通認証を導入したSupabaseで、対応画面の公開後に `supabase/common-auth.sql` を実行します。既存データは変更せず、室管理テーブルの書き込み権限を共通認証で検証します。
+
+`tests/common-auth.cjs` はPlaywrightとChromeで共通メニューからのログイン、登録者、権限、期限切れ、ログアウトを検証します。通信とデータ書き込みはすべてテスト用に置き換えます。共通メニューのソースは隣接する `garlic-liff-scanner-repo`、または環境変数 `COMMON_MENU_REPO` で指定します。
+
+`tests/common-auth-rollback.sql` は適用後のSQL Editor用の権限テストです。既存レコードを使った試験変更は最後にすべてロールバックします。
 
 ## データ構造の考え方
 
@@ -37,7 +51,7 @@ window.APP_CONFIG = {
 
 ## 注意点
 
-この初期実装ではGitHub Pagesから直接Supabaseテーブルを操作するため、`anon` に黒にんにく用テーブルの読み書きを許可しています。社内利用や限定URL運用なら扱いやすい構成ですが、外部公開を強く意識する場合は、書き込みをRPCだけに閉じる形へ強化してください。
+GitHub Pagesから直接Supabaseテーブルを操作します。`supabase/common-auth.sql` の適用後は、室管理の書き込みに共通セッションと操作権限が必要です。読み取りは既存のRLS設定を維持するため、メニューのログインだけですべてのAPIの閲覧が制限されるわけではありません。
 
 ## GitHub Pagesへの配置
 
@@ -47,4 +61,4 @@ window.APP_CONFIG = {
 
 ビルド処理は不要です。画面の更新はこのリポジトリに反映します。Supabaseの接続先とデータは移管前と同じです。
 
-旧URLとはブラウザの保存領域が異なるため、新URLでは初回に作業者の選択やPIN入力が必要になる場合があります。
+共通メニューと室管理は同じ `eight-corp.github.io` の保存領域を使用します。メニューのログインは同じブラウザ内で共有されます。LINE内ブラウザとChromeなど、異なるブラウザ間では共有されません。

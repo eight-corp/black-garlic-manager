@@ -1,12 +1,8 @@
 (() => {
   "use strict";
 
-  const STORAGE_KEYS = {
-    url: "blackGarlicSupabaseUrl",
-    key: "blackGarlicSupabaseAnonKey",
-    worker: "blackGarlicWorkerId",
-    pins: "blackGarlicSavedPins"
-  };
+  const APP_ID = "black_garlic";
+  const MENU_URL = "https://eight-corp.github.io/garlic-liff-scanner/menu.html?openExternalBrowser=1";
 
   const TABLES = {
     rooms: "black_garlic_rooms",
@@ -24,6 +20,7 @@
   const state = {
     client: null,
     workerId: "",
+    session: null,
     activeTab: "main",
     activeSummary: "daily",
     activePrediction: "table",
@@ -56,6 +53,7 @@
   document.addEventListener("DOMContentLoaded", init);
 
   function init() {
+    clearLegacyLogin();
     setDefaultDates();
     bindEvents();
     createIcons();
@@ -63,17 +61,8 @@
   }
 
   function bindEvents() {
-    $("saveSetupBtn").addEventListener("click", saveSetup);
-    $("loginBtn").addEventListener("click", login);
-    $("loginWorkerSelect").addEventListener("change", () => {
-      $("loginMessage").textContent = "";
-      syncPinVisibility();
-    });
-    $("workerSelect").addEventListener("change", event => {
-      state.workerId = event.target.value;
-      localStorage.setItem(STORAGE_KEYS.worker, state.workerId);
-    });
-    $("reloadBtn").addEventListener("click", () => refreshAll("更新しました"));
+    $("menuBtn").addEventListener("click", () => window.location.assign(MENU_URL));
+    $("reloadBtn").addEventListener("click", () => refreshAll("更新しました").catch(showError));
     $("logoutBtn").addEventListener("click", logout);
 
     $$(".tab").forEach(btn => {
@@ -127,7 +116,7 @@
       btn.addEventListener("click", () => switchPrediction(btn.dataset.predictionView));
     });
     $("predictionRefreshBtn").addEventListener("click", () => {
-      savePredictionSettings().then(renderPrediction).catch(showError);
+      refreshPrediction().catch(showError);
     });
 
     $("masterPanel").addEventListener("click", handleMasterClick);
@@ -136,39 +125,22 @@
 
   async function connect() {
     const config = readConfig();
-    const hasFileConfig = hasStaticConfig();
-    if (!hasFileConfig && shouldForceSetup()) {
-      showSetup();
-      return;
-    }
     if (!config.url || !config.key) {
-      showSetup();
-      return;
+      throw new Error("接続設定を読み込めませんでした。");
     }
 
     if (!window.supabase || typeof window.supabase.createClient !== "function") {
       throw new Error("Supabaseライブラリを読み込めませんでした。通信環境を確認してください。");
     }
 
-    try {
-      state.client = window.supabase.createClient(config.url, config.key);
-    } catch (error) {
-      if (!hasFileConfig) showSetup();
-      throw error;
+    if (!window.BusinessAuth) {
+      throw new Error("共通認証を読み込めませんでした。通信環境を確認してください。");
     }
-    $("setupPanel").classList.add("hidden");
-    $("loginPanel").classList.add("hidden");
-    await loadWorkersForLogin();
-  }
-
-  function showSetup() {
-    const config = readConfig();
-    $("setupUrl").value = config.url;
-    $("setupKey").value = config.key;
-    $("setupPanel").classList.remove("hidden");
-    $("loginPanel").classList.add("hidden");
-    document.body.classList.add("login-locked");
-    createIcons();
+    window.BusinessAuth.init(config.url, config.key);
+    state.client = window.supabase.createClient(config.url, config.key, {
+      global: { fetch: window.BusinessAuth.authorizedFetch }
+    });
+    await refreshAll();
   }
 
   function readConfig() {
@@ -176,170 +148,72 @@
     const fileUrl = String(fileConfig.supabaseUrl || "").trim();
     const fileKey = String(fileConfig.supabaseAnonKey || "").trim();
     return {
-      url: fileUrl || localStorage.getItem(STORAGE_KEYS.url) || "",
-      key: fileKey || localStorage.getItem(STORAGE_KEYS.key) || ""
+      url: fileUrl,
+      key: fileKey
     };
   }
 
-  function hasStaticConfig() {
-    const fileConfig = window.APP_CONFIG || {};
-    return !!String(fileConfig.supabaseUrl || "").trim() && !!String(fileConfig.supabaseAnonKey || "").trim();
-  }
-
-  function shouldForceSetup() {
-    const params = new URLSearchParams(window.location.search);
-    return params.has("setup") || window.location.hash === "#setup";
-  }
-
-  async function saveSetup() {
-    const url = $("setupUrl").value.trim();
-    const key = $("setupKey").value.trim();
-    if (!url || !key) {
-      showError(new Error("Supabase URLとanon keyを入力してください。"));
-      return;
-    }
-    if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url)) {
-      showError(new Error("Supabase URLは https://xxxxxxxx.supabase.co の形式で入力してください。"));
-      return;
-    }
-    localStorage.setItem(STORAGE_KEYS.url, url);
-    localStorage.setItem(STORAGE_KEYS.key, key);
-    await connect();
-  }
-
-  async function loadWorkersForLogin() {
-    state.data.workers = await selectAll(TABLES.workers, query => query.order("display_order").order("worker_id"));
-    renderWorkerSelects();
-    const saved = localStorage.getItem(STORAGE_KEYS.worker) || "";
-    if (saved && activeWorkers().some(worker => worker.worker_id === saved)) {
-      state.workerId = saved;
-      $("loginWorkerSelect").value = saved;
-      $("workerSelect").value = saved;
-      if (await tryAutoLogin(saved)) return;
-    }
-    $("loginPanel").classList.remove("hidden");
-    document.body.classList.add("login-locked");
-    syncPinVisibility();
-  }
-
-  function renderWorkerSelects() {
-    const workers = activeWorkers();
-    const options = workers.map(worker => `<option value="${esc(worker.worker_id)}">${esc(worker.worker_name)}</option>`).join("");
-    $("loginWorkerSelect").innerHTML = options;
-    $("workerSelect").innerHTML = options;
-    if (!state.workerId && workers[0]) state.workerId = workers[0].worker_id;
-    if (state.workerId) {
-      $("loginWorkerSelect").value = state.workerId;
-      $("workerSelect").value = state.workerId;
-    }
-  }
-
-  function activeWorkers() {
-    return state.data.workers.filter(worker => worker.active !== false);
-  }
-
-  function syncPinVisibility() {
-    const worker = activeWorkers().find(item => item.worker_id === $("loginWorkerSelect").value);
-    const pin = workerPin(worker);
-    const savedPin = worker ? savedWorkerPin(worker.worker_id) : "";
-    const shouldShowPin = !!pin && !savedPin;
-    $("loginPinLabel").classList.toggle("hidden", !shouldShowPin);
-    if (!shouldShowPin) $("loginPin").value = "";
-  }
-
-  function workerPin(worker) {
-    const note = String(worker && worker.note || "");
-    const match = note.match(/(?:pin|PIN|Pin)\s*[:=]\s*([0-9]+)/);
-    return match ? match[1] : "";
-  }
-
-  async function login() {
-    const selected = $("loginWorkerSelect").value;
-    const worker = activeWorkers().find(item => item.worker_id === selected);
-    if (!worker) {
-      $("loginMessage").textContent = "有効な作業者がありません。";
-      return;
-    }
-    const pin = workerPin(worker);
-    const enteredPin = $("loginPin").value.trim();
-    const savedPin = savedWorkerPin(selected);
-    const usablePin = enteredPin || savedPin;
-    if (pin && usablePin !== pin) {
-      if (savedPin && !enteredPin) {
-        removeSavedWorkerPin(selected);
-        syncPinVisibility();
-        $("loginMessage").textContent = "保存済みPINが違います。PINを入力してください。";
-      } else {
-        $("loginMessage").textContent = "PINが違います。";
-      }
-      return;
-    }
-    if (pin && enteredPin) saveWorkerPin(selected, enteredPin);
-    await completeLogin(selected);
-  }
-
-  function logout() {
-    document.body.classList.add("login-locked");
-    $("loginPanel").classList.remove("hidden");
-    syncPinVisibility();
-  }
-
-  async function tryAutoLogin(workerId) {
-    const worker = activeWorkers().find(item => item.worker_id === workerId);
-    if (!worker) return false;
-    const pin = workerPin(worker);
-    const savedPin = savedWorkerPin(workerId);
-    if (pin && savedPin !== pin) {
-      if (savedPin) removeSavedWorkerPin(workerId);
-      return false;
-    }
-    await completeLogin(workerId);
-    return true;
-  }
-
-  async function completeLogin(workerId) {
-    state.workerId = workerId;
-    localStorage.setItem(STORAGE_KEYS.worker, workerId);
-    $("loginWorkerSelect").value = workerId;
-    $("workerSelect").value = workerId;
-    $("loginPin").value = "";
-    $("loginMessage").textContent = "";
-    document.body.classList.remove("login-locked");
-    $("loginPanel").classList.add("hidden");
-    await refreshAll();
-  }
-
-  function savedPins() {
+  function clearLegacyLogin() {
     try {
-      const pins = JSON.parse(localStorage.getItem(STORAGE_KEYS.pins) || "{}");
-      return pins && typeof pins === "object" ? pins : {};
+      localStorage.removeItem("blackGarlicWorkerId");
+      localStorage.removeItem("blackGarlicSavedPins");
     } catch (error) {
-      return {};
+      // Legacy credentials are never used, even if their storage cleanup is blocked.
     }
   }
 
-  function savedWorkerPin(workerId) {
-    const pins = savedPins();
-    return String(pins[workerId] || "");
+  function can(minimum) {
+    return window.BusinessAuth.allows(state.session, APP_ID, minimum);
   }
 
-  function saveWorkerPin(workerId, pin) {
-    if (!workerId || !pin) return;
-    const pins = savedPins();
-    pins[workerId] = pin;
-    localStorage.setItem(STORAGE_KEYS.pins, JSON.stringify(pins));
+  async function requireSession(minimum = "viewer") {
+    const session = await window.BusinessAuth.session();
+    if (!session?.workerId || !window.BusinessAuth.allows(session, APP_ID, "viewer")) {
+      state.session = null;
+      state.workerId = "";
+      document.body.classList.add("login-locked");
+      window.location.replace(MENU_URL);
+      throw new Error("業務管理メニューでログインしてください。");
+    }
+    state.session = session;
+    state.workerId = session.workerId;
+    renderAccess();
+    if (!can(minimum)) throw new Error("この操作を行う権限がありません。");
   }
 
-  function removeSavedWorkerPin(workerId) {
-    const pins = savedPins();
-    delete pins[workerId];
-    localStorage.setItem(STORAGE_KEYS.pins, JSON.stringify(pins));
+  function renderAccess() {
+    const roleNames = { admin: "管理者", operator: "作業者", viewer: "閲覧者" };
+    $("currentWorker").textContent = state.session.workerName;
+    $("currentRole").textContent = roleNames[state.session.permissions[APP_ID]];
+    ["mainForm", "storageForm"].forEach(id => $(id).classList.toggle("hidden", !can("operator")));
+    $("avgUsage").readOnly = !can("operator");
+    $$(".row-delete-btn").forEach(button => button.disabled = !can("operator") || button.dataset.busy === "true");
+    $("masterSaveBtn").disabled = !can("admin") || $("masterSaveBtn").dataset.busy === "true";
+    document.querySelector('[data-tab="master"]').classList.toggle("hidden", !can("admin"));
+    document.querySelector(".tabs").style.setProperty("--tab-count", can("admin") ? 5 : 4);
+    if (state.activeTab === "master" && !can("admin")) switchTab("main");
+  }
+
+  async function logout() {
+    document.body.classList.add("login-locked");
+    state.session = null;
+    state.workerId = "";
+    try {
+      await window.BusinessAuth.logout();
+    } catch (error) {
+      showError(error);
+    } finally {
+      window.location.replace(MENU_URL);
+    }
   }
 
   async function refreshAll(message) {
     await withBusy($("reloadBtn"), async () => {
+      await requireSession();
       await loadAll();
       renderAll();
+      document.body.classList.remove("login-locked");
+      $("loginPanel").classList.add("hidden");
       if (message) toast(message);
     });
   }
@@ -381,7 +255,6 @@
       storageEntries,
       settings: Object.fromEntries(settingsRows.map(row => [row.setting_key, row.setting_value]))
     };
-    renderWorkerSelects();
     resetDrafts();
   }
 
@@ -400,6 +273,7 @@
     renderSummary();
     renderPrediction();
     renderMaster();
+    renderAccess();
     fitResponsiveTables();
     createIcons();
   }
@@ -462,6 +336,7 @@
   }
 
   function switchTab(tab) {
+    if (tab === "master" && !can("admin")) return;
     state.activeTab = tab;
     $$(".tab").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === tab));
     $$("[data-panel]").forEach(panel => panel.classList.toggle("active-panel", panel.dataset.panel === tab));
@@ -491,25 +366,25 @@
   }
 
   async function saveMainEntry() {
-    const payload = {
-      recorded_at: new Date().toISOString(),
-      entry_date: $("mainDate").value,
-      worker_id: state.workerId,
-      room_id: $("mainRoom").value,
-      type_id: $("mainType").value,
-      harvest_lot_id: getDefaultLotId(),
-      temperature: nullableNumber($("mainTemperature").value),
-      out_qty: clampNumber($("mainOut").value),
-      in_qty: clampNumber($("mainIn").value),
-      empty_qty: clampNumber($("mainEmpty").value),
-      note: $("mainNote").value.trim(),
-      inventory_manual: $("mainInventory").value !== "",
-      inventory_qty: $("mainInventory").value === "" ? 0 : clampNumber($("mainInventory").value)
-    };
-    requireFields(payload, ["entry_date", "worker_id", "room_id", "type_id", "harvest_lot_id"]);
-
-    const id = $("mainEntryId").value;
     await withBusy($("mainForm").querySelector("button[type='submit']"), async () => {
+      await requireSession("operator");
+      const payload = {
+        recorded_at: new Date().toISOString(),
+        entry_date: $("mainDate").value,
+        worker_id: state.workerId,
+        room_id: $("mainRoom").value,
+        type_id: $("mainType").value,
+        harvest_lot_id: getDefaultLotId(),
+        temperature: nullableNumber($("mainTemperature").value),
+        out_qty: clampNumber($("mainOut").value),
+        in_qty: clampNumber($("mainIn").value),
+        empty_qty: clampNumber($("mainEmpty").value),
+        note: $("mainNote").value.trim(),
+        inventory_manual: $("mainInventory").value !== "",
+        inventory_qty: $("mainInventory").value === "" ? 0 : clampNumber($("mainInventory").value)
+      };
+      requireFields(payload, ["entry_date", "worker_id", "room_id", "type_id", "harvest_lot_id"]);
+      const id = $("mainEntryId").value;
       if (id) {
         await assertOk(state.client.from(TABLES.entries).update(payload).eq("id", id));
       } else {
@@ -552,6 +427,7 @@
   }
 
   async function deleteMainEntry(id) {
+    await requireSession("operator");
     const targetId = id || $("mainEntryId").value;
     const isEditingTarget = $("mainEntryId").value === targetId;
     if (!targetId) return;
@@ -587,6 +463,7 @@
   }
 
   function loadMainRow(row) {
+    if (!can("operator")) return;
     if (!row) return;
     $("mainEntryId").value = row.id;
     $("mainDate").value = row.entry_date;
@@ -623,7 +500,7 @@
     const totalEmpty = rows.reduce((sum, row) => sum + clampNumber(row.empty_qty), 0);
     const totalInventory = rows.reduce((sum, row) => sum + clampNumber(row.inventory_qty), 0);
     const body = rows.map(row => `
-      <tr class="clickable" data-main-id="${esc(row.id)}">
+      <tr class="${can("operator") ? "clickable" : ""}" data-main-id="${esc(row.id)}">
         <td class="stack-cell">${esc(workerName(row.worker_id))}</td>
         <td class="stack-cell">${esc(roomName(row.room_id))}</td>
         <td class="stack-cell">${esc(typeName(row.type_id))}</td>
@@ -633,7 +510,7 @@
         <td class="num-cell">${num(row.empty_qty)}</td>
         <td class="num-cell">${num(row.inventory_qty)}${row.inventory_manual ? '<span class="manual-mark">＊</span>' : ""}</td>
         <td class="note-cell">${esc(row.note || "")}</td>
-        <td class="action-cell"><button type="button" class="danger icon-btn row-delete-btn" data-main-delete="${esc(row.id)}" title="削除"><i data-lucide="trash-2"></i></button></td>
+        <td class="action-cell"><button type="button" class="danger icon-btn row-delete-btn" data-main-delete="${esc(row.id)}" title="削除" ${can("operator") ? "" : "disabled"}><i data-lucide="trash-2"></i></button></td>
       </tr>
     `).join("");
 
@@ -658,7 +535,7 @@
     $("mainHistory").querySelectorAll("[data-main-delete]").forEach(button => {
       button.addEventListener("click", event => {
         event.stopPropagation();
-        deleteMainEntry(button.dataset.mainDelete).catch(showError);
+        withBusy(button, () => deleteMainEntry(button.dataset.mainDelete)).catch(showError);
       });
     });
     $("mainHistory").querySelectorAll("[data-main-id]").forEach(tr => {
@@ -669,18 +546,19 @@
   }
 
   async function saveStorageEntry() {
-    const payload = {
-      recorded_at: new Date().toISOString(),
-      storage_date: $("storageDate").value,
-      worker_id: state.workerId,
-      storage_type_id: $("storageType").value,
-      columns16: Math.max(0, Math.floor(clampNumber($("storageColumns").value))),
-      pieces: Math.max(0, Math.floor(clampNumber($("storagePieces").value))),
-      note: $("storageNote").value.trim()
-    };
-    requireFields(payload, ["storage_date", "worker_id", "storage_type_id"]);
-    const id = $("storageEntryId").value;
     await withBusy($("storageForm").querySelector("button[type='submit']"), async () => {
+      await requireSession("operator");
+      const payload = {
+        recorded_at: new Date().toISOString(),
+        storage_date: $("storageDate").value,
+        worker_id: state.workerId,
+        storage_type_id: $("storageType").value,
+        columns16: Math.max(0, Math.floor(clampNumber($("storageColumns").value))),
+        pieces: Math.max(0, Math.floor(clampNumber($("storagePieces").value))),
+        note: $("storageNote").value.trim()
+      };
+      requireFields(payload, ["storage_date", "worker_id", "storage_type_id"]);
+      const id = $("storageEntryId").value;
       if (id) {
         await assertOk(state.client.from(TABLES.storageEntries).update(payload).eq("id", id));
       } else {
@@ -698,6 +576,7 @@
   }
 
   async function deleteStorageEntry(id) {
+    await requireSession("operator");
     const targetId = id || $("storageEntryId").value;
     const isEditingTarget = $("storageEntryId").value === targetId;
     if (!targetId) return;
@@ -725,6 +604,7 @@
   }
 
   function loadStorageRow(row) {
+    if (!can("operator")) return;
     $("storageEntryId").value = row.id;
     $("storageDate").value = row.storage_date;
     updateDateWeekday("storageDate", "storageDateWeekday");
@@ -744,14 +624,14 @@
     const totalColumns16 = sum(rows, "columns16");
     const totalPieces = sum(rows, "pieces");
     const body = rows.map(row => `
-      <tr class="clickable" data-storage-id="${esc(row.id)}">
+      <tr class="${can("operator") ? "clickable" : ""}" data-storage-id="${esc(row.id)}">
         <td class="text-left">${esc(fmtDate(row.storage_date))}</td>
         <td class="text-left">${esc(workerName(row.worker_id))}</td>
         <td class="text-left">${esc(storageTypeName(row.storage_type_id))}</td>
         <td>${num(row.columns16, 0)}</td>
         <td>${num(row.pieces, 0)}</td>
         <td class="text-left">${esc(row.note || "")}</td>
-        <td class="action-cell"><button type="button" class="danger icon-btn row-delete-btn" data-storage-delete="${esc(row.id)}" title="削除"><i data-lucide="trash-2"></i></button></td>
+        <td class="action-cell"><button type="button" class="danger icon-btn row-delete-btn" data-storage-delete="${esc(row.id)}" title="削除" ${can("operator") ? "" : "disabled"}><i data-lucide="trash-2"></i></button></td>
       </tr>
     `).join("");
     $("storageHistory").innerHTML = `
@@ -763,7 +643,7 @@
     $("storageHistory").querySelectorAll("[data-storage-delete]").forEach(button => {
       button.addEventListener("click", event => {
         event.stopPropagation();
-        deleteStorageEntry(button.dataset.storageDelete).catch(showError);
+        withBusy(button, () => deleteStorageEntry(button.dataset.storageDelete)).catch(showError);
       });
     });
     $("storageHistory").querySelectorAll("[data-storage-id]").forEach(tr => {
@@ -957,6 +837,14 @@
         ]
       },
       options: chartOptions("数量", "在庫")
+    });
+  }
+
+  async function refreshPrediction() {
+    await withBusy($("predictionRefreshBtn"), async () => {
+      await requireSession();
+      if (can("operator")) await savePredictionSettings();
+      renderPrediction();
     });
   }
 
@@ -1171,6 +1059,7 @@
   }
 
   function handleMasterClick(event) {
+    if (!can("admin")) return;
     const button = event.target.closest("[data-master-action]");
     if (!button) return;
     collectMasterInputs();
@@ -1222,9 +1111,10 @@
   }
 
   async function saveMaster() {
-    collectMasterInputs();
-    validateMasterDrafts();
     await withBusy($("masterSaveBtn"), async () => {
+      await requireSession("admin");
+      collectMasterInputs();
+      validateMasterDrafts();
       await saveSimpleDraft("rooms", TABLES.rooms, "room_name", isRoomUsed);
       await saveSimpleDraft("types", TABLES.types, "type_name", isTypeUsed);
       await saveSimpleDraft("storageTypes", TABLES.storageTypes, "type_name", isStorageTypeUsed);
@@ -1566,12 +1456,16 @@
   }
 
   async function withBusy(button, fn) {
+    if (button.dataset.busy === "true") return;
     const oldDisabled = button.disabled;
+    button.dataset.busy = "true";
     button.disabled = true;
     try {
       await fn();
     } finally {
+      delete button.dataset.busy;
       button.disabled = oldDisabled;
+      if (state.session) renderAccess();
     }
   }
 
