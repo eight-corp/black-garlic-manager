@@ -41,4 +41,10 @@ window.APP_CONFIG = {
 
 ## GitHub Pagesへの配置
 
-この `black-garlic-supabase` フォルダをGitHubリポジトリに入れ、Pagesの公開元に指定すれば動きます。ビルド処理は不要です。
+- リポジトリ: [eight-corp/black-garlic-manager](https://github.com/eight-corp/black-garlic-manager)
+- 公開URL: [黒にんにく室管理](https://eight-corp.github.io/black-garlic-manager/)
+- Pagesの公開元: `main` ブランチの `/` (ルート)
+
+ビルド処理は不要です。画面の更新はこのリポジトリに反映します。Supabaseの接続先とデータは移管前と同じです。
+
+旧URLとはブラウザの保存領域が異なるため、新URLでは初回に作業者の選択やPIN入力が必要になる場合があります。
