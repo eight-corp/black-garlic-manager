@@ -503,6 +503,94 @@ async function run() {
     results.metricRoomAndTypeFiltersTotalsHiddenMastersStockSnapshotsAndCarryForward = true;
     await rooms.context.close();
 
+    const graph = await scenario(browser);
+    await graph.page.goto(appUrl); await unlocked(graph.page);
+    await graph.page.locator('[data-tab="summary"]').click();
+    await graph.page.locator('[data-summary-view="graph"]').click();
+    await graph.page.locator('#graphStartDate').fill('2026-09-10');
+    await graph.page.locator('#graphEndDate').fill('2026-09-12');
+    await graph.page.locator('#graphRefreshBtn').click();
+    const graphReads = graph.backend.reads.length;
+    for (let combination = 0; combination < 8; combination++) {
+      const types = ['graphInType', 'graphOutType', 'graphInventoryType'].map((id, index) => combination & (1 << index) ? 'bar' : 'line');
+      for (const [index, id] of ['graphInType', 'graphOutType', 'graphInventoryType'].entries()) await graph.page.locator('#' + id).selectOption(types[index]);
+      const actual = await graph.page.locator('#summaryChart').evaluate(canvas => {
+        const chart = Chart.getChart(canvas);
+        return { types: chart.data.datasets.map(dataset => dataset.type), controllers: chart.data.datasets.map((dataset, index) => chart.getDatasetMeta(index).type), data: chart.data.datasets.map(dataset => dataset.data), colors: chart.data.datasets.map(dataset => dataset.borderColor), axes: chart.data.datasets.map(dataset => dataset.yAxisID), inventoryAxisPosition: chart.options.scales.y1.position };
+      });
+      assert.deepEqual(actual.types, types);
+      assert.deepEqual(actual.controllers, types);
+      assert.deepEqual(actual.data, [[0, 10, 0], [0, 2, 0], [0, 8, 8]]);
+      assert.deepEqual(actual.colors, ['#007bff', '#d9534f', '#28a745']);
+      assert.deepEqual(actual.axes, ['y', 'y', 'y1']);
+      assert.equal(actual.inventoryAxisPosition, 'right');
+    }
+    for (const [width, height] of [[320, 844], [390, 844], [1280, 844], [1920, 1080]]) {
+      await graph.page.setViewportSize({ width, height });
+      await graph.page.waitForFunction(() => {
+        const canvas = document.querySelector('#summaryChart');
+        const bounds = canvas.getBoundingClientRect();
+        return bounds.width >= innerWidth - 20 && bounds.width <= innerWidth && bounds.height > 200 && bounds.bottom <= document.querySelector('.summary-bottom-tabs').getBoundingClientRect().top + 1 && document.documentElement.scrollWidth <= innerWidth;
+      });
+      assert.ok(await graph.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+      assert.ok(await graph.page.locator('.graph-series-controls').evaluate(element => [...element.querySelectorAll('select')].every(select => select.scrollWidth <= select.clientWidth)));
+      if (artifacts) await graph.page.screenshot({ path: path.join(artifacts, 'graph-viewport-bars-' + width + '.png'), fullPage: true });
+      await graph.page.locator('#graphFullscreenBtn').click();
+      await graph.page.waitForFunction(() => {
+        const dialog = document.querySelector('#graphFullscreenDialog');
+        const bounds = dialog.getBoundingClientRect();
+        const canvas = document.querySelector('#summaryChart').getBoundingClientRect();
+        return dialog.open && Math.abs(bounds.width - innerWidth) < 1 && Math.abs(bounds.height - innerHeight) < 1 && canvas.width >= innerWidth - 20 && canvas.width <= innerWidth && canvas.bottom <= innerHeight - 7 && canvas.height > innerHeight * .65;
+      });
+      assert.equal(await graph.page.locator('#graphFullscreenBtn').getAttribute('aria-label'), '\u5168\u753b\u9762\u8868\u793a\u3092\u7d42\u4e86');
+      await graph.page.locator('#graphInventoryType').selectOption('line');
+      await graph.page.locator('#graphInventoryType').selectOption('bar');
+      if (artifacts) await graph.page.screenshot({ path: path.join(artifacts, 'graph-fullscreen-bars-' + width + '.png') });
+      if (width === 320) await graph.page.locator('#graphFullscreenBtn').click();
+      else await graph.page.keyboard.press('Escape');
+      assert.equal(await graph.page.locator('#graphFullscreenDialog').evaluate(dialog => dialog.open), false);
+      await graph.page.waitForFunction(() => document.querySelector('#summaryPanel').contains(document.querySelector('#summaryGraph')) && document.querySelector('#summaryChart').getBoundingClientRect().width >= innerWidth - 20 && document.querySelector('#summaryChart').getBoundingClientRect().width <= innerWidth);
+    }
+    await graph.page.setViewportSize({ width: 844, height: 390 });
+    await graph.page.locator('#graphFullscreenBtn').click();
+    await graph.page.waitForFunction(() => {
+      const bounds = document.querySelector('#summaryChart').getBoundingClientRect();
+      return bounds.width >= innerWidth - 20 && bounds.width <= innerWidth && bounds.height > 160 && bounds.bottom < innerHeight && document.querySelector('#graphFullscreenDialog').scrollWidth <= innerWidth;
+    });
+    if (artifacts) await graph.page.screenshot({ path: path.join(artifacts, 'graph-fullscreen-landscape.png') });
+    await graph.page.keyboard.press('Escape');
+    await graph.page.setViewportSize({ width: 1280, height: 844 });
+    await graph.page.waitForFunction(() => {
+      const canvas = document.querySelector('#summaryChart');
+      const colors = new Set();
+      const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+      for (let index = 0; index < pixels.length; index += 4) {
+        const matches = (red, green, blue) => pixels[index + 3] > 100 && Math.abs(pixels[index] - red) <= 2 && Math.abs(pixels[index + 1] - green) <= 2 && Math.abs(pixels[index + 2] - blue) <= 2;
+        if (matches(40, 167, 69)) colors.add('inventory');
+        if (matches(0, 123, 255)) colors.add('in');
+        if (matches(217, 83, 79)) colors.add('out');
+      }
+      return colors.size === 3;
+    });
+    await graph.page.locator('[data-summary-view="weekly"]').click();
+    assert.equal(await graph.page.evaluate(() => document.body.classList.contains('summary-graph-active')), false);
+    await assertFourWeeklyTables(graph.page, '2026-09-07');
+    await graph.page.locator('[data-summary-view="graph"]').click();
+    assert.deepEqual(await graph.page.locator('.graph-series-controls select').evaluateAll(selects => selects.map(select => select.value)), ['bar', 'bar', 'bar']);
+    await graph.page.emulateMedia({ media: 'print' });
+    await graph.page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
+    assert.equal(await graph.page.locator('.graph-series-controls').isVisible(), false);
+    assert.ok(await graph.page.locator('#summaryChart').evaluate(canvas => canvas.getBoundingClientRect().height > 400));
+    await graph.page.emulateMedia({ media: 'screen' });
+    await graph.page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+    await graph.page.locator('[data-tab="main"]').click();
+    assert.equal(await graph.page.evaluate(() => document.body.classList.contains('summary-graph-active')), false);
+    assert.equal(graph.backend.reads.length, graphReads);
+    assert.equal(graph.backend.writes.length, 0);
+    assert.deepEqual(graph.backend.errors, []);
+    results.graphViewportFullscreenResponsiveEightIndependentLineBarCombinationsGreenStockRightAxisAndNoDatabaseWrites = true;
+    await graph.context.close();
+
     const future = await scenario(browser);
     const futureTemplate = future.backend.db.black_garlic_entries[0];
     future.backend.db.black_garlic_entries.push({ ...futureTemplate, id: 'future-main', entry_date: '2026-09-13', recorded_at: '2026-09-13T03:00:00Z', out_qty: 55, in_qty: 66, empty_qty: 77, inventory_qty: 99 });
@@ -625,4 +713,5 @@ async function run() {
   } finally { await browser.close(); }
 }
 
-run().catch(error => { console.error(error); process.exitCode = 1; });
+module.exports = { scenario, unlocked };
+if (require.main === module) run().catch(error => { console.error(error); process.exitCode = 1; });

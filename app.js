@@ -115,6 +115,22 @@
     });
     $("summaryRefreshBtn").addEventListener("click", renderSummary);
     $("graphRefreshBtn").addEventListener("click", renderSummaryGraph);
+    ["graphInType", "graphOutType", "graphInventoryType"].forEach(id => {
+      $(id).addEventListener("change", renderSummaryGraph);
+    });
+    $("graphFullscreenBtn").addEventListener("click", toggleGraphFullscreen);
+    $("graphFullscreenDialog").addEventListener("cancel", event => {
+      event.preventDefault();
+      closeGraphFullscreen();
+    });
+    $("graphFullscreenDialog").addEventListener("close", () => {
+      if (!$("graphFullscreenDialog").open) closeGraphFullscreen();
+    });
+    window.addEventListener("beforeprint", () => {
+      closeGraphFullscreen();
+      if (state.activeTab === "summary" && state.activeSummary === "graph") state.charts.summary?.resize();
+    });
+    window.addEventListener("afterprint", () => state.charts.summary?.resize());
     $("summaryPrintBtn").addEventListener("click", () => window.print());
     ["summaryStartDate", "summaryType", "summaryRoom"].forEach(id => {
       $(id).addEventListener("change", renderSummary);
@@ -360,16 +376,24 @@
   function observeBottomNavigation() {
     if (!window.ResizeObserver) return;
     const navigation = document.querySelector(".tabs");
-    new ResizeObserver(() => {
-      const height = navigation.getBoundingClientRect().height;
-      if (height > 0) document.documentElement.style.setProperty("--main-nav-height", `${height}px`);
-    }).observe(navigation);
+    const header = document.querySelector(".app-header");
+    const observer = new ResizeObserver(entries => {
+      entries.forEach(entry => {
+        const height = entry.target.getBoundingClientRect().height;
+        const property = entry.target === navigation ? "--main-nav-height" : "--app-header-height";
+        if (height > 0) document.documentElement.style.setProperty(property, `${height}px`);
+      });
+    });
+    observer.observe(navigation);
+    observer.observe(header);
   }
 
   function switchTab(tab) {
     if (tab === "master" && !can("admin")) return;
+    closeGraphFullscreen();
     state.activeTab = tab;
     document.body.classList.toggle("summary-active", tab === "summary");
+    document.body.classList.toggle("summary-graph-active", tab === "summary" && state.activeSummary === "graph");
     $$(".tab").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === tab));
     $$("[data-panel]").forEach(panel => panel.classList.toggle("active-panel", panel.dataset.panel === tab));
     if (tab === "summary") renderSummary();
@@ -379,6 +403,7 @@
   }
 
   function switchSummary(view) {
+    closeGraphFullscreen();
     state.activeSummary = view;
     $$("#summaryPanel .sub-tab").forEach(btn => btn.classList.toggle("active", btn.dataset.summaryView === view));
     $$(".summary-view").forEach(el => el.classList.toggle("active", el.id === `${view}Summary` || (view === "graph" && el.id === "summaryGraph")));
@@ -386,6 +411,7 @@
   }
 
   function updateSummaryControls() {
+    document.body.classList.toggle("summary-graph-active", state.activeTab === "summary" && state.activeSummary === "graph");
     const startDate = $("summaryStartDate");
     startDate.max = todayStr();
     if (!startDate.value || startDate.value > startDate.max) startDate.value = startDate.max;
@@ -779,6 +805,39 @@
     `;
   }
 
+  function toggleGraphFullscreen() {
+    const dialog = $("graphFullscreenDialog");
+    if (dialog.open) {
+      closeGraphFullscreen();
+      return;
+    }
+    dialog.appendChild($("summaryGraph"));
+    dialog.showModal();
+    document.body.classList.add("graph-fullscreen-active");
+    updateGraphFullscreenButton(true);
+    $("graphFullscreenBtn").focus();
+    requestAnimationFrame(() => state.charts.summary?.resize());
+  }
+
+  function closeGraphFullscreen() {
+    const dialog = $("graphFullscreenDialog");
+    if (!dialog.contains($("summaryGraph"))) return;
+    if (dialog.open) dialog.close();
+    $("summaryPanel").insertBefore($("summaryGraph"), document.querySelector(".summary-bottom-tabs"));
+    document.body.classList.remove("graph-fullscreen-active");
+    updateGraphFullscreenButton(false);
+    requestAnimationFrame(() => state.charts.summary?.resize());
+  }
+
+  function updateGraphFullscreenButton(fullscreen) {
+    const button = $("graphFullscreenBtn");
+    const label = fullscreen ? "全画面表示を終了" : "全画面表示";
+    button.title = label;
+    button.setAttribute("aria-label", label);
+    button.innerHTML = `<i data-lucide="${fullscreen ? "minimize-2" : "maximize-2"}"></i>`;
+    createIcons();
+  }
+
   function renderSummaryGraph() {
     const start = $("graphStartDate").value;
     const end = $("graphEndDate").value;
@@ -796,6 +855,9 @@
     });
 
     const canvas = $("summaryChart");
+    const typeId = $("summaryType").value;
+    const roomId = $("summaryRoom").value;
+    $("graphFilterContext").textContent = `${typeId === "All" || !typeId ? "全体" : typeName(typeId)} / ${roomId === "All" || !roomId ? "全室" : roomName(roomId)}`;
     if (typeof Chart === "undefined") return;
     if (state.charts.summary) state.charts.summary.destroy();
     state.charts.summary = new Chart(canvas, {
@@ -803,12 +865,12 @@
       data: {
         labels,
         datasets: [
-          { label: "入庫", data: inData, borderColor: "#007bff", backgroundColor: "rgba(0,123,255,.12)", tension: .25, yAxisID: "y" },
-          { label: "出庫", data: outData, borderColor: "#d9534f", backgroundColor: "rgba(217,83,79,.12)", tension: .25, yAxisID: "y" },
-          { label: "在庫", data: inventoryData, borderColor: "#2563eb", backgroundColor: "rgba(37,99,235,.12)", tension: .25, yAxisID: "y1" }
+          { type: $("graphInType").value, label: "入庫", data: inData, borderColor: "#007bff", backgroundColor: "rgba(0,123,255,.45)", tension: .25, yAxisID: "y" },
+          { type: $("graphOutType").value, label: "出庫", data: outData, borderColor: "#d9534f", backgroundColor: "rgba(217,83,79,.45)", tension: .25, yAxisID: "y" },
+          { type: $("graphInventoryType").value, label: "在庫", data: inventoryData, borderColor: "#28a745", backgroundColor: "rgba(40,167,69,.45)", tension: .25, yAxisID: "y1" }
         ]
       },
-      options: chartOptions("数量", "在庫")
+      options: { ...chartOptions("数量", "在庫"), animation: false }
     });
   }
 
