@@ -104,6 +104,7 @@
     });
     $("storageClearBtn").addEventListener("click", clearStorageForm);
     $("storageDate").addEventListener("change", () => {
+      updateDateWeekday("storageDate", "storageDateWeekday");
       loadStorageRecordByKey();
     });
     $("storageType").addEventListener("change", loadStorageRecordByKey);
@@ -726,6 +727,7 @@
   function loadStorageRow(row) {
     $("storageEntryId").value = row.id;
     $("storageDate").value = row.storage_date;
+    updateDateWeekday("storageDate", "storageDateWeekday");
     $("storageType").value = row.storage_type_id;
     $("storageColumns").value = row.columns16 ?? "";
     $("storagePieces").value = row.pieces ?? "";
@@ -1534,6 +1536,7 @@
     $("predictionStartDate").value = dateToStr(addDays(parseYmd(today), -7));
     $("predictionEndDate").value = dateToStr(addDays(parseYmd(today), 30));
     updateMainDateWeekday();
+    updateDateWeekday("storageDate", "storageDateWeekday");
     updateDateWeekday("mainHistoryDate", "mainHistoryDateWeekday");
     updateDateWeekday("storageHistoryDate", "storageHistoryDateWeekday");
   }
