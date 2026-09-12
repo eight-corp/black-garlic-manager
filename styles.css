@@ -438,7 +438,7 @@ button svg {
   bottom: var(--main-nav-height);
   z-index: 29;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 4px;
   height: var(--summary-nav-height);
   overflow: visible;
@@ -446,6 +446,80 @@ button svg {
   padding: 6px 8px;
   background: rgba(255, 255, 255, .96);
   border-top: 1px solid var(--line);
+}
+
+.summary-metric-controls {
+  min-width: 0;
+  margin: 0 0 12px;
+  padding: 0;
+  border: 0;
+}
+
+.summary-metric-controls legend {
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.summary-metric-options {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  max-width: 440px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.summary-metric-options label {
+  position: relative;
+  display: block;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.summary-metric-options label + label {
+  border-left: 1px solid var(--line);
+}
+
+.summary-metric-options input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+}
+
+.summary-metric-options span {
+  display: grid;
+  place-items: center;
+  min-height: 36px;
+  padding: 6px 4px;
+  color: var(--brand-dark);
+  font-size: 13px;
+}
+
+.summary-metric-options input:checked + span {
+  color: #fff;
+  background: var(--brand);
+}
+
+.summary-metric-options input:focus-visible + span {
+  outline: 2px solid var(--ink);
+  outline-offset: -3px;
+}
+
+.room-summary-title {
+  display: grid;
+  gap: 2px;
+  margin-bottom: 4px;
+}
+
+.summary-period {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
 }
 
 .summary-bottom-tabs .sub-tab {
@@ -1155,6 +1229,7 @@ body.summary-active .toast {
   .tabs,
   .sub-tabs,
   .summary-controls,
+  .summary-metric-controls,
   .action-row,
   #toast {
     display: none !important;

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>黒にんにく管理</title>
-  <link rel="stylesheet" href="./styles.css?v=20260912-summary-bottom-tabs">
+  <link rel="stylesheet" href="./styles.css?v=20260912-summary-metrics">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -134,8 +134,16 @@
         <label id="summaryRoomFilter">室名<select id="summaryRoom"></select></label>
         <button id="summaryRefreshBtn" type="button" class="icon-btn" title="更新" aria-label="更新"><i data-lucide="refresh-cw"></i></button>
       </div>
-      <div id="dailySummary" class="summary-view active"></div>
-      <div id="weeklySummary" class="summary-view"></div>
+      <fieldset id="summaryMetricControls" class="summary-metric-controls">
+        <legend>表示項目</legend>
+        <div class="summary-metric-options">
+          <label><input type="radio" name="summaryMetric" value="out" checked><span>出庫数</span></label>
+          <label><input type="radio" name="summaryMetric" value="in"><span>入庫数</span></label>
+          <label><input type="radio" name="summaryMetric" value="empty"><span>空き</span></label>
+          <label><input type="radio" name="summaryMetric" value="inventory"><span>在庫</span></label>
+        </div>
+      </fieldset>
+      <div id="weeklySummary" class="summary-view active"></div>
       <div id="monthlySummary" class="summary-view"></div>
       <div id="summaryGraph" class="summary-view">
         <div class="summary-controls graph-controls">
@@ -146,8 +154,7 @@
         <div class="chart-box"><canvas id="summaryChart"></canvas></div>
       </div>
       <nav class="sub-tabs summary-bottom-tabs" aria-label="集計表示の切り替え">
-        <button type="button" class="sub-tab active" data-summary-view="daily">日毎</button>
-        <button type="button" class="sub-tab" data-summary-view="weekly">週毎</button>
+        <button type="button" class="sub-tab active" data-summary-view="weekly">週毎</button>
         <button type="button" class="sub-tab" data-summary-view="monthly">月毎</button>
         <button type="button" class="sub-tab" data-summary-view="graph">グラフ</button>
       </nav>
@@ -190,6 +197,6 @@
   </main>
 
   <div id="toast" class="toast hidden"></div>
-  <script src="./app.js?v=20260912-summary-bottom-tabs"></script>
+  <script src="./app.js?v=20260912-summary-metrics"></script>
 </body>
 </html>

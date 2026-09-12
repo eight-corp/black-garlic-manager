@@ -17,12 +17,19 @@
     workers: "workers"
   };
 
+  const SUMMARY_METRICS = {
+    out: { label: "出庫数", field: "out_qty", className: "out-cell" },
+    in: { label: "入庫数", field: "in_qty", className: "in-cell" },
+    empty: { label: "空き", field: "empty_qty", className: "" },
+    inventory: { label: "在庫", field: "inventory_qty", className: "" }
+  };
+
   const state = {
     client: null,
     workerId: "",
     session: null,
     activeTab: "main",
-    activeSummary: "daily",
+    activeSummary: "weekly",
     activePrediction: "table",
     data: emptyData(),
     drafts: {},
@@ -111,6 +118,9 @@
     $("summaryPrintBtn").addEventListener("click", () => window.print());
     ["summaryStartDate", "summaryType", "summaryRoom"].forEach(id => {
       $(id).addEventListener("change", renderSummary);
+    });
+    $$("input[name='summaryMetric']").forEach(input => {
+      input.addEventListener("change", renderSummary);
     });
     $("summaryPrevDateBtn").addEventListener("click", () => moveDate("summaryStartDate", -1));
     $("summaryNextDateBtn").addEventListener("click", () => moveDate("summaryStartDate", 1));
@@ -372,6 +382,7 @@
     if (!startDate.value || startDate.value > startDate.max) startDate.value = startDate.max;
     updateDateWeekday("summaryStartDate", "summaryStartDateWeekday");
     $("summaryNextDateBtn").disabled = startDate.value >= startDate.max;
+    $("summaryMetricControls").classList.toggle("hidden", state.activeSummary === "graph");
   }
 
   function switchPrediction(view) {
@@ -672,99 +683,51 @@
 
   function renderSummary() {
     updateSummaryControls();
-    if (state.activeSummary === "daily") renderDailySummary();
     if (state.activeSummary === "weekly") renderWeeklySummary();
     if (state.activeSummary === "monthly") renderMonthlySummary();
     if (state.activeSummary === "graph") renderSummaryGraph();
     fitResponsiveTables($("summaryPanel"));
   }
 
-  function renderDailySummary() {
-    const base = parseYmd($("summaryStartDate").value);
+  function roomSummaryMatrix(days) {
     const typeId = $("summaryType").value;
     const roomId = $("summaryRoom").value;
-    const days = Array.from({ length: 7 }, (_, index) => addDays(base, -index));
+    const metricKey = document.querySelector("input[name='summaryMetric']:checked").value;
+    const metric = SUMMARY_METRICS[metricKey];
     const rooms = activeRows(state.data.rooms).filter(room => roomId === "All" || !roomId || room.id === roomId);
     const typeLabel = typeId === "All" || !typeId ? "全体" : typeName(typeId);
     const roomLabel = roomId === "All" || !roomId ? "" : ` / ${roomName(roomId)}`;
-    const sections = days.map(day => {
+    const rows = days.map(day => {
       const ymd = dateToStr(day);
-      const roomRows = rooms.map(room => {
-        const dayRows = filterEntries(ymd, ymd, typeId, room.id);
-        return {
-          roomName: room.room_name,
-          workers: unique(dayRows.map(row => workerName(row.worker_id)).filter(Boolean)).join("、"),
-          out: sum(dayRows, "out_qty"),
-          inQty: sum(dayRows, "in_qty"),
-          inventory: inventoryAsOf(ymd, typeId, room.id),
-          empty: sum(dayRows, "empty_qty"),
-          note: dayRows.map(row => row.note).filter(Boolean).join(" / ")
-        };
-      });
-      const displayRows = roomRows.map(row => [
-        row.roomName,
-        row.workers,
-        num(row.out),
-        num(row.inQty),
-        num(row.empty),
-        num(row.inventory),
-        row.note
-      ]);
-      displayRows.push([
-        "合計",
-        "",
-        num(roomRows.reduce((total, row) => total + row.out, 0)),
-        num(roomRows.reduce((total, row) => total + row.inQty, 0)),
-        num(roomRows.reduce((total, row) => total + row.empty, 0)),
-        num(roomRows.reduce((total, row) => total + row.inventory, 0)),
-        ""
-      ]);
-      return `
-        <h2 class="print-title">${esc(fmtDate(ymd))} 日毎集計（${esc(typeLabel + roomLabel)}）</h2>
-        ${tableHtml(["室名", "作業者名", "出庫", "入庫", "空き", "在庫", "備考"], displayRows, [0, 1, 6], displayRows.length - 1)}
-      `;
-    });
-
-    $("dailySummary").innerHTML = sections.join("");
+      const values = rooms.map(room => metricKey === "inventory"
+        ? inventoryAsOf(ymd, typeId, room.id)
+        : sum(filterEntries(ymd, ymd, typeId, room.id), metric.field));
+      const cells = values.map(value => `<td class="num-cell ${metric.className}">${esc(num(value))}</td>`);
+      const total = values.reduce((value, current) => value + current, 0);
+      return `<tr data-summary-date="${ymd}">
+        <td class="${day.getDay() === 0 ? "sun-date" : ""}">${esc(fmtDate(ymd))}</td>
+        ${cells.join("")}
+        <td class="num-cell total-col ${metric.className}">${esc(num(total))}</td>
+      </tr>`;
+    }).join("");
+    return {
+      label: `${typeLabel + roomLabel} / ${metric.label}`,
+      html: matrixTableHtml(["日付", ...rooms.map(room => room.room_name), "合計"], rows)
+    };
   }
 
   function renderWeeklySummary() {
     const base = parseYmd($("summaryStartDate").value);
     const monday = startOfWeekMonday(base);
-    const days = dateRange(monday, addDays(monday, 6));
-    const typeId = $("summaryType").value;
-    const roomId = $("summaryRoom").value;
-    const types = typeId === "All" ? activeRows(state.data.types) : activeRows(state.data.types).filter(row => row.id === typeId);
-    const rooms = roomId === "All" ? activeRows(state.data.rooms) : activeRows(state.data.rooms).filter(row => row.id === roomId);
-    const sections = [];
-
-    types.forEach(type => {
-      rooms.forEach(room => {
-        const allRows = days.flatMap(day => filterEntries(dateToStr(day), dateToStr(day), type.id, room.id));
-        if (!allRows.length) return;
-        const rows = days.map(day => {
-          const ymd = dateToStr(day);
-          const dayRows = allRows.filter(row => row.entry_date === ymd);
-          return [
-            fmtDate(ymd),
-            unique(dayRows.map(row => workerName(row.worker_id)).filter(Boolean)).join("、"),
-            num(sum(dayRows, "in_qty")),
-            num(sum(dayRows, "out_qty")),
-            num(sum(dayRows, "inventory_qty")),
-            num(lastValue(dayRows, "temperature")),
-            dayRows.map(row => fmtTime(row.recorded_at)).filter(Boolean).join("、"),
-            dayRows.map(row => row.note).filter(Boolean).join(" / ")
-          ];
-        });
-        sections.push(`
-          <h2 class="print-title">${esc(reiwaMonthLabel(monday))} ${esc(type.type_name)} ${esc(room.room_name)}</h2>
-          ${tableHtml(["日付(曜日)", "作業者名", "搬入数", "搬出数", "在庫", "温度", "時刻", "備考"], rows, [0, 1, 7])}
-        `);
-      });
-    });
-
-    $("weeklySummary").innerHTML = sections.join("") || `<p class="muted">表示対象のデータがありません。</p>`;
-    markSundayDateCells($("weeklySummary"));
+    const sunday = addDays(monday, 6);
+    const matrix = roomSummaryMatrix(dateRange(monday, sunday));
+    $("weeklySummary").innerHTML = `
+      <h2 class="print-title room-summary-title">
+        <span>週毎集計（${esc(matrix.label)}）</span>
+        <span class="summary-period">${esc(dateToStr(monday))}〜${esc(dateToStr(sunday))}</span>
+      </h2>
+      ${matrix.html}
+    `;
   }
 
   function renderMonthlySummary() {
@@ -772,32 +735,8 @@
     const start = new Date(base.getFullYear(), base.getMonth(), 1);
     const end = new Date(base.getFullYear(), base.getMonth() + 1, 0);
     const days = dateRange(start, end);
-    const typeId = $("summaryType").value;
-    const roomId = $("summaryRoom").value;
-    const typeLabel = typeId === "All" || !typeId ? "全体" : typeName(typeId);
-    const rooms = roomId === "All" || !roomId
-      ? activeRows(state.data.rooms)
-      : activeRows(state.data.rooms).filter(room => room.id === roomId);
     const storageTypes = activeRows(state.data.storageTypes);
-
-    const monthlyRoomRows = days.map(day => {
-      const ymd = dateToStr(day);
-      let outTotal = 0;
-      let inTotal = 0;
-      const cells = rooms.map(room => {
-        const dayRows = filterEntries(ymd, ymd, typeId, room.id);
-        const out = sum(dayRows, "out_qty");
-        const inQty = sum(dayRows, "in_qty");
-        outTotal += out;
-        inTotal += inQty;
-        return twoLineCell(numOrBlank(out), numOrBlank(inQty), "out-cell", "in-cell");
-      });
-      return `<tr>
-        <td class="${day.getDay() === 0 ? "sun-date" : ""}">${esc(fmtDate(ymd))}</td>
-        ${cells.join("")}
-        ${twoLineCell(numOrBlank(outTotal), numOrBlank(inTotal), "out-cell", "in-cell", "total-col")}
-      </tr>`;
-    }).join("");
+    const matrix = roomSummaryMatrix(days);
 
     const storageRows = days.map(day => {
       const ymd = dateToStr(day);
@@ -819,8 +758,8 @@
     }).join("");
 
     $("monthlySummary").innerHTML = `
-      <h2 class="print-title">${esc(reiwaMonthLabel(start))} 月毎室（${esc(typeLabel)} / 上段：出庫 下段：入庫）</h2>
-      ${matrixTableHtml(["日付", ...rooms.map(room => room.room_name), "合計"], monthlyRoomRows)}
+      <h2 class="print-title">${esc(reiwaMonthLabel(start))} 月毎室（${esc(matrix.label)}）</h2>
+      ${matrix.html}
       <h2 class="print-title">保管庫集計（上段：16段 下段：端数）</h2>
       ${matrixTableHtml(["日付", ...storageTypes.map(type => type.type_name), "合計"], storageRows)}
     `;
@@ -1557,11 +1496,6 @@
     return rows.reduce((total, row) => total + clampNumber(row[key]), 0);
   }
 
-  function lastValue(rows, key) {
-    const row = rows.filter(item => item[key] !== null && item[key] !== undefined && item[key] !== "").at(-1);
-    return row ? row[key] : "";
-  }
-
   function lastInventory(rows) {
     const row = rows.slice().sort((a, b) => compareDisplay(a.entry_date, b.entry_date)).at(-1);
     return row ? row.inventory_qty : 0;
@@ -1638,13 +1572,6 @@
     return `${d.getMonth() + 1}/${d.getDate()}`;
   }
 
-  function fmtTime(value) {
-    if (!value) return "";
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return "";
-    return d.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
-  }
-
   function reiwaMonthLabel(date) {
     const d = new Date(date);
     const reiwa = d.getFullYear() - 2018;
@@ -1695,13 +1622,6 @@
     if (header.includes("出庫") || header.includes("搬出")) classes.push("out-cell");
     if (header.includes("入庫") || header.includes("搬入")) classes.push("in-cell");
     return classes.length ? ` class="${classes.join(" ")}"` : "";
-  }
-
-  function markSundayDateCells(root) {
-    if (!root) return;
-    root.querySelectorAll("tbody tr td:first-child").forEach(cell => {
-      if (cell.textContent.includes("(日)")) cell.classList.add("sun-date");
-    });
   }
 
   function fitResponsiveTables(root = document) {

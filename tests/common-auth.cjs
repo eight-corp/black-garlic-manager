@@ -129,6 +129,11 @@ async function openFromMenu(page, context) {
   return app;
 }
 
+async function chooseSummaryMetric(page, metric) {
+  await page.locator('input[name="summaryMetric"][value="' + metric + '"] + span').click();
+  assert.equal(await page.locator('input[name="summaryMetric"]:checked').inputValue(), metric);
+}
+
 async function run() {
   const browser = await chromium.launch({ channel: 'chrome', headless: true });
   const results = {};
@@ -156,6 +161,9 @@ async function run() {
     assert.ok(await app.evaluate(() => !localStorage.getItem('blackGarlicSavedPins') && !localStorage.getItem('blackGarlicWorkerId')));
     const writesBeforeSummary = backend.writes.length;
     await app.locator('[data-tab="summary"]').click();
+    assert.equal(await app.locator('#dailySummary,[data-summary-view="daily"]').count(), 0);
+    assert.equal(await app.locator('#weeklySummary').isVisible(), true);
+    assert.equal(await app.locator('input[name="summaryMetric"]:checked').inputValue(), 'out');
     const summaryMax = await app.locator('#summaryStartDate').getAttribute('max');
     assert.equal(await app.locator('#summaryStartDate').inputValue(), summaryMax);
     assert.equal(await app.locator('#summaryNextDateBtn').isDisabled(), true);
@@ -165,7 +173,7 @@ async function run() {
     assert.equal(await app.locator('#summaryStartDate').inputValue(), '2026-09-11');
     assert.equal(await app.locator('#summaryStartDateWeekday').textContent(), '\uff08\u91d1\u66dc\u65e5\uff09');
     assert.equal(await app.locator('#summaryNextDateBtn').isDisabled(), false);
-    assert.ok((await app.locator('#dailySummary .print-title').first().textContent()).startsWith('9/11('));
+    assert.ok((await app.locator('#weeklySummary .summary-period').textContent()).startsWith('2026-09-07'));
     await app.locator('#summaryNextDateBtn').click();
     assert.equal(await app.locator('#summaryStartDate').inputValue(), '2026-09-12');
     assert.equal(await app.locator('#summaryStartDateWeekday').textContent(), '\uff08\u571f\u66dc\u65e5\uff09');
@@ -189,8 +197,9 @@ async function run() {
     await app.locator('#summaryStartDate').fill('');
     assert.equal(await app.locator('#summaryStartDate').inputValue(), summaryMax);
     await app.locator('#summaryStartDate').fill('2026-09-12');
-    for (const view of ['daily', 'weekly', 'monthly', 'graph']) {
+    for (const view of ['weekly', 'monthly', 'graph']) {
       await app.locator('[data-summary-view="' + view + '"]').click();
+      assert.equal(await app.locator('#summaryMetricControls').isVisible(), view !== 'graph');
       for (const width of [320, 390, 760, 761, 943, 1280]) {
         await app.setViewportSize({ width, height: 844 });
         await app.waitForFunction(() => {
@@ -203,7 +212,7 @@ async function run() {
           const main = document.querySelector('.tabs').getBoundingClientRect();
           const buttons = [...element.querySelectorAll('button')];
           return getComputedStyle(element).position === 'fixed' && bounds.top > innerHeight * .6 && bounds.bottom <= main.top + .5 &&
-            Math.abs(main.bottom - innerHeight) < 1 && buttons.length === 4 && element.querySelectorAll('.active').length === 1 &&
+            Math.abs(main.bottom - innerHeight) < 1 && buttons.length === 3 && element.querySelectorAll('.active').length === 1 &&
             buttons.every(button => { const r = button.getBoundingClientRect(); return r.left >= bounds.left && r.right <= bounds.right && r.top >= bounds.top && r.bottom <= bounds.bottom && button.scrollWidth <= button.clientWidth && document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)?.closest('button') === button; });
         }), 'bottom tabs:' + view + ':' + width);
         assert.ok(await app.locator('.main-summary-controls').evaluate(element => {
@@ -218,43 +227,82 @@ async function run() {
             previous.left >= date.right && next.left >= previous.right && Math.abs(previous.top - date.top) < 1 && Math.abs(next.top - date.top) < 1 &&
             fields.every((field, index) => { const r = field.getBoundingClientRect(); return r.left >= bounds.left && r.right <= bounds.right + .5 && Math.abs(r.top - date.top) < 1 && (!index || r.left >= fields[index - 1].getBoundingClientRect().right); });
         }), view + ':' + width);
-        if (artifacts && [390, 943].includes(width)) await app.screenshot({ path: path.join(artifacts, 'summary-date-controls-' + view + '-' + width + '.png'), fullPage: true });
+        if (view !== 'graph') {
+          assert.ok(await app.locator('.summary-metric-options').evaluate(element => {
+            const bounds = element.getBoundingClientRect();
+            const segments = [...element.querySelectorAll('span')];
+            return element.scrollWidth <= element.clientWidth && segments.every(segment => {
+              const r = segment.getBoundingClientRect();
+              return r.left >= bounds.left && r.right <= bounds.right && r.height >= 36 && segment.scrollWidth <= segment.clientWidth;
+            });
+          }), 'metric controls:' + view + ':' + width);
+        }
+        if (artifacts && [390, 943].includes(width)) await app.screenshot({ path: path.join(artifacts, 'summary-metrics-' + view + '-' + width + '.png'), fullPage: true });
       }
     }
-    await app.locator('[data-summary-view="daily"]').click();
-    results.summaryWeekdayDailyButtonsBoundariesFutureLimitAndResponsiveViews = true;
+    await app.locator('[data-summary-view="weekly"]').click();
+    results.summaryWeekdayDateButtonsBoundariesFutureLimitAndResponsiveViews = true;
     for (const type of ['All', 'type']) {
       await app.locator('#summaryType').selectOption(type);
-      const tables = app.locator('#dailySummary table');
-      assert.equal(await tables.count(), 7);
-      for (let day = 0; day < 7; day++) {
-        assert.deepEqual(await tables.nth(day).locator('thead th').allTextContents(), ['\u5ba4\u540d', '\u4f5c\u696d\u8005\u540d', '\u51fa\u5eab', '\u5165\u5eab', '\u7a7a\u304d', '\u5728\u5eab', '\u5099\u8003']);
-      }
-      for (const [day, empty] of [[0, '0'], [1, '1']]) {
-        const table = tables.nth(day);
-        const cells = table.locator('tbody tr').first().locator('td');
-        assert.equal(await cells.nth(4).textContent(), empty);
-        assert.equal(await cells.nth(5).textContent(), '8');
-        const total = table.locator('.total-row td');
-        assert.equal(await total.nth(4).textContent(), empty);
-        assert.equal(await total.nth(5).textContent(), '8');
+      for (const view of ['weekly', 'monthly']) {
+        await app.locator('[data-summary-view="' + view + '"]').click();
+        const table = app.locator('#' + view + 'Summary table').first();
+        assert.deepEqual(await table.locator('thead th').allTextContents(), ['\u65e5\u4ed8', '\u516d\u6238\u2460', '\u5408\u8a08']);
+        assert.equal(await table.locator('tbody tr').count(), view === 'weekly' ? 7 : 30);
+        for (const [metric, value, color] of [['out', '2', 'rgb(217, 83, 79)'], ['in', '10', 'rgb(0, 123, 255)'], ['empty', '1', null], ['inventory', '8', null]]) {
+          await chooseSummaryMetric(app, metric);
+          const cells = app.locator('#' + view + 'Summary [data-summary-date="2026-09-11"] td');
+          assert.deepEqual((await cells.allTextContents()).slice(1), [value, value]);
+          if (color) assert.equal(await cells.nth(1).evaluate(cell => getComputedStyle(cell).color), color);
+          assert.equal(await cells.last().evaluate(cell => getComputedStyle(cell).backgroundColor), 'rgb(255, 244, 209)');
+          const nextDay = app.locator('#' + view + 'Summary [data-summary-date="2026-09-12"] td');
+          assert.deepEqual((await nextDay.allTextContents()).slice(1), metric === 'inventory' ? ['8', '8'] : ['0', '0']);
+        }
+        if (view === 'weekly') {
+          assert.equal(await table.locator('tbody tr').first().getAttribute('data-summary-date'), '2026-09-07');
+          assert.equal(await table.locator('tbody tr').last().getAttribute('data-summary-date'), '2026-09-13');
+          assert.equal(await table.locator('tbody tr').last().locator('td').first().evaluate(cell => getComputedStyle(cell).backgroundColor), 'rgb(255, 240, 240)');
+        } else {
+          assert.equal(await app.locator('#monthlySummary table').count(), 2);
+          const storage = app.locator('#monthlySummary table').last().locator('tbody tr').nth(10);
+          assert.deepEqual(await storage.locator('.cell-upper').allTextContents(), ['4', '4']);
+          assert.deepEqual(await storage.locator('.cell-lower').allTextContents(), ['8', '8']);
+        }
       }
     }
+    for (const [date, monday, sunday, monthDays] of [
+      ['2026-09-01', '2026-08-31', '2026-09-06', 30],
+      ['2026-01-01', '2025-12-29', '2026-01-04', 31],
+      ['2024-02-29', '2024-02-26', '2024-03-03', 29],
+      ['2026-02-01', '2026-01-26', '2026-02-01', 28]
+    ]) {
+      await app.locator('[data-summary-view="weekly"]').click();
+      await app.locator('#summaryStartDate').fill(date);
+      const days = app.locator('#weeklySummary tbody tr');
+      assert.equal(await days.count(), 7);
+      assert.equal(await days.first().getAttribute('data-summary-date'), monday);
+      assert.equal(await days.last().getAttribute('data-summary-date'), sunday);
+      await app.locator('[data-summary-view="monthly"]').click();
+      assert.equal(await app.locator('#monthlySummary table').first().locator('tbody tr').count(), monthDays);
+    }
+    await app.locator('#summaryStartDate').fill('2026-09-12');
+    await app.locator('[data-summary-view="weekly"]').click();
     for (const width of [320, 390, 943, 1280]) {
       await app.setViewportSize({ width, height: 844 });
-      assert.ok(await app.locator('#dailySummary').evaluate(element => element.scrollWidth <= element.clientWidth));
-      if (artifacts) await app.screenshot({ path: path.join(artifacts, 'daily-empty-before-stock-' + width + '.png'), fullPage: true });
+      assert.ok(await app.locator('#weeklySummary').evaluate(element => element.scrollWidth <= element.clientWidth));
+      if (artifacts) await app.screenshot({ path: path.join(artifacts, 'weekly-selected-stock-' + width + '.png'), fullPage: true });
     }
     await app.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-    assert.ok(await app.locator('#dailySummary table').last().evaluate(element => element.getBoundingClientRect().bottom <= document.querySelector('.summary-bottom-tabs').getBoundingClientRect().top));
+    assert.ok(await app.locator('#weeklySummary table').last().evaluate(element => element.getBoundingClientRect().bottom <= document.querySelector('.summary-bottom-tabs').getBoundingClientRect().top));
     await app.emulateMedia({ media: 'print' });
     assert.equal(await app.locator('.summary-bottom-tabs').isVisible(), false);
     assert.equal(await app.locator('.tabs').isVisible(), false);
+    assert.equal(await app.locator('#summaryMetricControls').isVisible(), false);
     assert.equal(await app.locator('main').evaluate(element => getComputedStyle(element).paddingBottom), '0px');
     await app.emulateMedia({ media: 'screen' });
     results.bottomSummaryTabsClickableAllViewsLastTableAccessibleAndHiddenInPrint = true;
     assert.equal(backend.writes.length, writesBeforeSummary);
-    results.dailyEmptyBeforeInventoryHeadersValuesTotalsAndTypeFilters = true;
+    results.weeklyAndMonthlyMetricMatricesTotalsColorsPeriodsAndStoragePreserved = true;
     await app.locator('[data-tab="main"]').click();
     assert.equal(await app.locator('.summary-bottom-tabs').isVisible(), false);
     await app.locator('#mainDate').fill('2026-09-12');
@@ -338,6 +386,7 @@ async function run() {
     rooms.backend.db.black_garlic_types.push({ id: 'type2', type_name: '\u9752\u5e78', active: true }, { id: 'hidden-type', type_name: 'Hidden type', active: false });
     const sample = rooms.backend.db.black_garlic_entries[0];
     rooms.backend.db.black_garlic_entries.push(
+      { ...sample, id: 'previous-inventory', entry_date: '2026-09-10', inventory_qty: 20, out_qty: 0, in_qty: 0, empty_qty: 0 },
       { ...sample, id: 'room2-entry', room_id: 'room2', out_qty: 1, in_qty: 6, empty_qty: 2, inventory_qty: 5 },
       { ...sample, id: 'type2-entry', type_id: 'type2', out_qty: 4, in_qty: 7, empty_qty: 3, inventory_qty: 3 },
       { ...sample, id: 'hidden-room-entry', room_id: 'hidden-room', out_qty: 100, in_qty: 200, empty_qty: 50, inventory_qty: 100 },
@@ -357,31 +406,62 @@ async function run() {
     ]) {
       await rooms.page.locator('#summaryType').selectOption(type);
       await rooms.page.locator('#summaryRoom').selectOption(room);
-      await rooms.page.locator('#summaryRefreshBtn').click();
-      const tables = rooms.page.locator('#dailySummary table');
-      assert.equal(await tables.count(), 7);
-      for (let day = 0; day < 7; day++) {
-        assert.equal(await tables.nth(day).locator('tbody tr:not(.total-row)').count(), count);
-        assert.equal(await tables.nth(day).locator('.total-row').count(), 1);
-      }
-      const values = await tables.first().locator('.total-row td').allTextContents();
-      assert.deepEqual(values.slice(2, 6), totals);
-      if (room === 'room2') {
-        assert.equal(await tables.first().locator('tbody tr').first().locator('td').first().textContent(), roomName2);
-        assert.ok((await rooms.page.locator('#dailySummary .print-title').first().textContent()).includes(roomName2));
+      for (const view of ['weekly', 'monthly']) {
+        await rooms.page.locator('[data-summary-view="' + view + '"]').click();
+        const table = rooms.page.locator('#' + view + 'Summary table').first();
+        assert.equal(await table.locator('thead th').count(), count + 2);
+        assert.equal(await table.locator('tbody tr').count(), view === 'weekly' ? 7 : 30);
+        for (const [index, metric] of ['out', 'in', 'empty', 'inventory'].entries()) {
+          await chooseSummaryMetric(rooms.page, metric);
+          await rooms.page.locator('#summaryRefreshBtn').click();
+          const row = rooms.page.locator('#' + view + 'Summary [data-summary-date="2026-09-11"]');
+          const cells = await row.locator('td').allTextContents();
+          assert.equal(cells.at(-1), totals[index], view + ':' + metric + ':' + type + ':' + room);
+          assert.equal(cells.length, count + 2);
+          assert.equal(await row.locator('.total-col').count(), 1);
+          assert.ok(!(await table.locator('thead').textContent()).includes('Hidden'));
+          assert.equal(cells.slice(1, -1).reduce((total, value) => total + Number(value), 0), Number(totals[index]));
+        }
+        if (room === 'room2') {
+          assert.equal(await table.locator('thead th').nth(1).textContent(), roomName2);
+          assert.ok((await rooms.page.locator('#' + view + 'Summary .print-title').first().textContent()).includes(roomName2));
+        }
       }
     }
     await rooms.page.locator('#summaryType').selectOption('type');
     await rooms.page.locator('#summaryRoom').selectOption('room2');
     await rooms.page.locator('[data-summary-view="weekly"]').click();
-    await rooms.page.locator('[data-summary-view="daily"]').click();
+    await rooms.page.locator('[data-summary-view="monthly"]').click();
     assert.equal(await rooms.page.locator('#summaryRoom').inputValue(), 'room2');
+    assert.equal(await rooms.page.locator('#summaryType').inputValue(), 'type');
+    assert.equal(await rooms.page.locator('input[name="summaryMetric"]:checked').inputValue(), 'inventory');
     await rooms.page.locator('#summaryNextDateBtn').click();
-    const carriedInventory = await rooms.page.locator('#dailySummary table').first().locator('.total-row td').allTextContents();
-    assert.deepEqual(carriedInventory.slice(2, 6), ['0', '0', '0', '5']);
+    for (const view of ['weekly', 'monthly']) {
+      await rooms.page.locator('[data-summary-view="' + view + '"]').click();
+      for (const metric of ['out', 'in', 'empty', 'inventory']) {
+        await chooseSummaryMetric(rooms.page, metric);
+        const carried = await rooms.page.locator('#' + view + 'Summary [data-summary-date="2026-09-12"] td').allTextContents();
+        assert.deepEqual(carried.slice(1), metric === 'inventory' ? ['5', '5'] : ['0', '0']);
+      }
+      for (const width of [320, 390, 943]) {
+        await rooms.page.setViewportSize({ width, height: 844 });
+        assert.ok(await rooms.page.locator('#' + view + 'Summary').evaluate(element => element.scrollWidth <= element.clientWidth));
+        if (artifacts) await rooms.page.screenshot({ path: path.join(artifacts, 'summary-filtered-' + view + '-' + width + '.png'), fullPage: true });
+      }
+    }
+    await rooms.page.locator('#summaryRoom').selectOption('All');
+    await rooms.page.locator('#summaryType').selectOption('All');
+    assert.deepEqual((await rooms.page.locator('#monthlySummary [data-summary-date="2026-09-10"] td').allTextContents()).slice(1), ['20', '0', '20']);
+    for (const metric of ['out', 'in', 'empty', 'inventory']) {
+      await chooseSummaryMetric(rooms.page, metric);
+      for (const view of ['weekly', 'monthly', 'graph', 'weekly']) {
+        await rooms.page.locator('[data-summary-view="' + view + '"]').click();
+        assert.equal(await rooms.page.locator('input[name="summaryMetric"]:checked').inputValue(), metric);
+      }
+    }
     assert.equal(rooms.backend.writes.length, 0);
     assert.deepEqual(rooms.backend.errors, []);
-    results.dailyRoomAndTypeFiltersSevenTablesTotalsHiddenMastersAndCarryForward = true;
+    results.metricRoomAndTypeFiltersTotalsHiddenMastersStockSnapshotsAndCarryForward = true;
     await rooms.context.close();
 
     for (const role of ['operator', 'viewer']) {
