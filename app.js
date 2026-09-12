@@ -111,6 +111,8 @@
     ["summaryStartDate", "summaryType", "summaryRoom"].forEach(id => {
       $(id).addEventListener("change", renderSummary);
     });
+    $("summaryPrevDateBtn").addEventListener("click", () => moveDate("summaryStartDate", -1));
+    $("summaryNextDateBtn").addEventListener("click", () => moveDate("summaryStartDate", 1));
 
     $$("#predictionPanel .sub-tab[data-prediction-view]").forEach(btn => {
       btn.addEventListener("click", () => switchPrediction(btn.dataset.predictionView));
@@ -355,6 +357,11 @@
 
   function updateSummaryControls() {
     $("summaryRoomFilter").classList.toggle("hidden", state.activeSummary === "daily");
+    const startDate = $("summaryStartDate");
+    startDate.max = todayStr();
+    if (!startDate.value || startDate.value > startDate.max) startDate.value = startDate.max;
+    updateDateWeekday("summaryStartDate", "summaryStartDateWeekday");
+    $("summaryNextDateBtn").disabled = startDate.value >= startDate.max;
   }
 
   function switchPrediction(view) {
@@ -1429,6 +1436,7 @@
     updateDateWeekday("storageDate", "storageDateWeekday");
     updateDateWeekday("mainHistoryDate", "mainHistoryDateWeekday");
     updateDateWeekday("storageHistoryDate", "storageHistoryDateWeekday");
+    updateSummaryControls();
   }
 
   function updateMainDateWeekday() {
@@ -1441,8 +1449,10 @@
   }
 
   function moveDate(id, delta) {
-    $(id).value = dateToStr(addDays(parseYmd($(id).value), delta));
-    $(id).dispatchEvent(new Event("change"));
+    const input = $(id);
+    const nextDate = dateToStr(addDays(parseYmd(input.value), delta));
+    input.value = input.max && nextDate > input.max ? input.max : nextDate;
+    input.dispatchEvent(new Event("change"));
   }
 
   function requireFields(payload, fields) {

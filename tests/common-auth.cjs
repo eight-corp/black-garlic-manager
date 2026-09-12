@@ -156,7 +156,59 @@ async function run() {
     assert.ok(await app.evaluate(() => !localStorage.getItem('blackGarlicSavedPins') && !localStorage.getItem('blackGarlicWorkerId')));
     const writesBeforeSummary = backend.writes.length;
     await app.locator('[data-tab="summary"]').click();
+    const summaryMax = await app.locator('#summaryStartDate').getAttribute('max');
+    assert.equal(await app.locator('#summaryStartDate').inputValue(), summaryMax);
+    assert.equal(await app.locator('#summaryNextDateBtn').isDisabled(), true);
     await app.locator('#summaryStartDate').fill('2026-09-12');
+    assert.equal(await app.locator('#summaryStartDateWeekday').textContent(), '\uff08\u571f\u66dc\u65e5\uff09');
+    await app.locator('#summaryPrevDateBtn').click();
+    assert.equal(await app.locator('#summaryStartDate').inputValue(), '2026-09-11');
+    assert.equal(await app.locator('#summaryStartDateWeekday').textContent(), '\uff08\u91d1\u66dc\u65e5\uff09');
+    assert.equal(await app.locator('#summaryNextDateBtn').isDisabled(), false);
+    assert.ok((await app.locator('#dailySummary .print-title').first().textContent()).startsWith('9/11('));
+    await app.locator('#summaryNextDateBtn').click();
+    assert.equal(await app.locator('#summaryStartDate').inputValue(), '2026-09-12');
+    assert.equal(await app.locator('#summaryStartDateWeekday').textContent(), '\uff08\u571f\u66dc\u65e5\uff09');
+    for (const [date, previous] of [['2026-09-01', '2026-08-31'], ['2026-01-01', '2025-12-31'], ['2024-03-01', '2024-02-29']]) {
+      await app.locator('#summaryStartDate').fill(date);
+      await app.locator('#summaryPrevDateBtn').click();
+      assert.equal(await app.locator('#summaryStartDate').inputValue(), previous);
+      await app.locator('#summaryNextDateBtn').click();
+      assert.equal(await app.locator('#summaryStartDate').inputValue(), date);
+    }
+    await app.locator('#summaryStartDate').evaluate(input => {
+      const nextDay = new Date(input.max + 'T12:00:00');
+      nextDay.setDate(nextDay.getDate() + 1);
+      input.value = nextDay.getFullYear() + '-' + String(nextDay.getMonth() + 1).padStart(2, '0') + '-' + String(nextDay.getDate()).padStart(2, '0');
+      input.dispatchEvent(new Event('change'));
+    });
+    assert.equal(await app.locator('#summaryStartDate').inputValue(), summaryMax);
+    assert.equal(await app.locator('#summaryNextDateBtn').isDisabled(), true);
+    await app.locator('#summaryNextDateBtn').evaluate(button => button.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    assert.equal(await app.locator('#summaryStartDate').inputValue(), summaryMax);
+    await app.locator('#summaryStartDate').fill('');
+    assert.equal(await app.locator('#summaryStartDate').inputValue(), summaryMax);
+    await app.locator('#summaryStartDate').fill('2026-09-12');
+    for (const view of ['daily', 'weekly', 'monthly', 'graph']) {
+      await app.locator('[data-summary-view="' + view + '"]').click();
+      for (const width of [320, 390, 760, 761, 943, 1280]) {
+        await app.setViewportSize({ width, height: 844 });
+        assert.ok(await app.locator('.main-summary-controls').evaluate(element => {
+          const bounds = element.getBoundingClientRect();
+          const fields = [...element.querySelectorAll('input,select,button')].filter(field => field.getBoundingClientRect().width);
+          const date = element.querySelector('#summaryStartDate').getBoundingClientRect();
+          const previous = element.querySelector('#summaryPrevDateBtn').getBoundingClientRect();
+          const next = element.querySelector('#summaryNextDateBtn').getBoundingClientRect();
+          const weekday = element.querySelector('#summaryStartDateWeekday').getBoundingClientRect();
+          return element.scrollWidth <= element.clientWidth && date.width >= 130 && weekday.right <= previous.left &&
+            previous.left >= date.right && next.left >= previous.right && Math.abs(previous.top - date.top) < 1 && Math.abs(next.top - date.top) < 1 &&
+            fields.every(field => { const r = field.getBoundingClientRect(); return r.left >= bounds.left && r.right <= bounds.right + .5; });
+        }), view + ':' + width);
+        if (artifacts && [390, 943].includes(width)) await app.screenshot({ path: path.join(artifacts, 'summary-date-controls-' + view + '-' + width + '.png'), fullPage: true });
+      }
+    }
+    await app.locator('[data-summary-view="daily"]').click();
+    results.summaryWeekdayDailyButtonsBoundariesFutureLimitAndResponsiveViews = true;
     for (const type of ['All', 'type']) {
       await app.locator('#summaryType').selectOption(type);
       const tables = app.locator('#dailySummary table');
