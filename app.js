@@ -698,7 +698,7 @@
     fitResponsiveTables($("summaryPanel"));
   }
 
-  function roomSummaryMatrix(days) {
+  function roomSummaryMatrix(days, { blankFuture = false } = {}) {
     const typeId = $("summaryType").value;
     const roomId = $("summaryRoom").value;
     const metricKey = document.querySelector("input[name='summaryMetric']:checked").value;
@@ -706,17 +706,19 @@
     const rooms = activeRows(state.data.rooms).filter(room => roomId === "All" || !roomId || room.id === roomId);
     const typeLabel = typeId === "All" || !typeId ? "全体" : typeName(typeId);
     const roomLabel = roomId === "All" || !roomId ? "" : ` / ${roomName(roomId)}`;
+    const today = todayStr();
     const rows = days.map(day => {
       const ymd = dateToStr(day);
-      const values = rooms.map(room => metricKey === "inventory"
+      const future = blankFuture && ymd > today;
+      const values = rooms.map(room => future ? 0 : metricKey === "inventory"
         ? inventoryAsOf(ymd, typeId, room.id)
         : sum(filterEntries(ymd, ymd, typeId, room.id), metric.field));
-      const cells = values.map(value => `<td class="num-cell ${metric.className}">${esc(num(value))}</td>`);
+      const cells = values.map(value => `<td class="num-cell ${metric.className}">${future ? "" : esc(num(value))}</td>`);
       const total = values.reduce((value, current) => value + current, 0);
       return `<tr data-summary-date="${ymd}">
-        <td class="${day.getDay() === 0 ? "sun-date" : ""}">${esc(fmtDate(ymd))}</td>
+        <td class="${day.getDay() === 0 ? "sun-date" : ""}">${future ? "&nbsp;" : esc(fmtDate(ymd))}</td>
         ${cells.join("")}
-        <td class="num-cell total-col ${metric.className}">${esc(num(total))}</td>
+        <td class="num-cell total-col ${metric.className}">${future ? "" : esc(num(total))}</td>
       </tr>`;
     }).join("");
     return {
@@ -731,7 +733,7 @@
     $("weeklySummary").innerHTML = Array.from({ length: 4 }, (_, index) => {
       const monday = addDays(currentMonday, -index * 7);
       const sunday = addDays(monday, 6);
-      const matrix = roomSummaryMatrix(dateRange(monday, sunday));
+      const matrix = roomSummaryMatrix(dateRange(monday, sunday).reverse(), { blankFuture: true });
       return `
         <h2 class="print-title room-summary-title">
           <span>週毎集計（${esc(matrix.label)}）</span>
