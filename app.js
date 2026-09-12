@@ -519,7 +519,7 @@
       await recalculateInventoryGroup(payload.room_id, payload.type_id, payload.harvest_lot_id);
       await loadAll();
       renderAll();
-      loadMainRecordByKey();
+      clearMainForm();
       $("mainStatus").textContent = "保存済み";
       setTimeout(() => $("mainStatus").textContent = "", 1600);
     });
@@ -604,7 +604,7 @@
     const button = $("mainSubmitBtn");
     if (!button) return;
     const label = button.querySelector("span");
-    if (label) label.textContent = isEdit ? "【編集モード】更新する" : "データ登録";
+    if (label) label.textContent = isEdit ? "編集" : "登録";
     button.classList.toggle("edit-mode", isEdit);
   }
 
