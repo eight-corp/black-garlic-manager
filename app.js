@@ -30,7 +30,8 @@
     session: null,
     activeTab: "main",
     activeSummary: "weekly",
-    activePrediction: "table",
+    activeGraph: "actual",
+    activePrediction: "chart",
     data: emptyData(),
     drafts: {},
     charts: {
@@ -115,7 +116,7 @@
     });
     $("summaryRefreshBtn").addEventListener("click", renderSummary);
     $("graphRefreshBtn").addEventListener("click", renderSummaryGraph);
-    ["graphInType", "graphOutType", "graphInventoryType"].forEach(id => {
+    ["graphType", "graphRoom", "graphInType", "graphOutType", "graphInventoryType"].forEach(id => {
       $(id).addEventListener("change", renderSummaryGraph);
     });
     $("graphFullscreenBtn").addEventListener("click", toggleGraphFullscreen);
@@ -128,10 +129,17 @@
     });
     window.addEventListener("beforeprint", () => {
       closeGraphFullscreen();
-      if (state.activeTab === "summary" && state.activeSummary === "graph") state.charts.summary?.resize();
+      if (state.activeTab === "prediction") {
+        state.charts.summary?.resize();
+        state.charts.prediction?.resize();
+      }
     });
-    window.addEventListener("afterprint", () => state.charts.summary?.resize());
+    window.addEventListener("afterprint", () => {
+      state.charts.summary?.resize();
+      state.charts.prediction?.resize();
+    });
     $("summaryPrintBtn").addEventListener("click", () => window.print());
+    $("graphPrintBtn").addEventListener("click", () => window.print());
     ["summaryStartDate", "summaryType", "summaryRoom"].forEach(id => {
       $(id).addEventListener("change", renderSummary);
     });
@@ -141,6 +149,9 @@
     $("summaryPrevDateBtn").addEventListener("click", () => moveDate("summaryStartDate", -1));
     $("summaryNextDateBtn").addEventListener("click", () => moveDate("summaryStartDate", 1));
 
+    $$("#predictionPanel .sub-tab[data-graph-view]").forEach(btn => {
+      btn.addEventListener("click", () => switchGraph(btn.dataset.graphView));
+    });
     $$("#predictionPanel .sub-tab[data-prediction-view]").forEach(btn => {
       btn.addEventListener("click", () => switchPrediction(btn.dataset.predictionView));
     });
@@ -314,7 +325,7 @@
     renderMainHistory();
     renderStorageHistory();
     renderSummary();
-    renderPrediction();
+    renderGraphs();
     renderMaster();
     renderAccess();
     fitResponsiveTables();
@@ -329,6 +340,8 @@
     fillSelect("storageHistoryType", activeRows(state.data.storageTypes), "id", "type_name", "全体");
     fillSelect("summaryType", activeRows(state.data.types), "id", "type_name", "全体");
     fillSelect("summaryRoom", activeRows(state.data.rooms), "id", "room_name", "全体");
+    fillSelect("graphType", activeRows(state.data.types), "id", "type_name", "全体");
+    fillSelect("graphRoom", activeRows(state.data.rooms), "id", "room_name", "全体");
     fillSelect("predictionType", activeRows(state.data.types), "id", "type_name", "全体");
     fillSelect("predictionRoom", activeRows(state.data.rooms), "id", "room_name", "全体");
     $("avgUsage").value = state.data.settings.prediction && state.data.settings.prediction.avgUsage !== undefined
@@ -398,11 +411,11 @@
     closeGraphFullscreen();
     state.activeTab = tab;
     document.body.classList.toggle("summary-active", tab === "summary");
-    document.body.classList.toggle("summary-graph-active", tab === "summary" && state.activeSummary === "graph");
+    updateGraphControls();
     $$(".tab").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === tab));
     $$("[data-panel]").forEach(panel => panel.classList.toggle("active-panel", panel.dataset.panel === tab));
     if (tab === "summary") renderSummary();
-    if (tab === "prediction") renderPrediction();
+    if (tab === "prediction") renderGraphs();
     if (tab === "master") renderMaster();
     createIcons();
   }
@@ -411,25 +424,45 @@
     closeGraphFullscreen();
     state.activeSummary = view;
     $$("#summaryPanel .sub-tab").forEach(btn => btn.classList.toggle("active", btn.dataset.summaryView === view));
-    $$(".summary-view").forEach(el => el.classList.toggle("active", el.id === `${view}Summary` || (view === "graph" && el.id === "summaryGraph")));
+    $$("#summaryPanel .summary-view").forEach(el => el.classList.toggle("active", el.id === `${view}Summary`));
     renderSummary();
   }
 
   function updateSummaryControls() {
-    document.body.classList.toggle("summary-graph-active", state.activeTab === "summary" && state.activeSummary === "graph");
     const startDate = $("summaryStartDate");
     startDate.max = todayStr();
     if (!startDate.value || startDate.value > startDate.max) startDate.value = startDate.max;
     updateDateWeekday("summaryStartDate", "summaryStartDateWeekday");
     $("summaryNextDateBtn").disabled = startDate.value >= startDate.max;
-    $("summaryMetricControls").classList.toggle("hidden", state.activeSummary === "graph");
+  }
+
+  function updateGraphControls() {
+    const active = state.activeTab === "prediction";
+    document.body.classList.toggle("graphs-active", active);
+    document.body.classList.toggle("graph-chart-active", active && (state.activeGraph === "actual" || state.activePrediction === "chart"));
+  }
+
+  function switchGraph(view) {
+    closeGraphFullscreen();
+    state.activeGraph = view;
+    renderGraphs();
+  }
+
+  function renderGraphs() {
+    updateGraphControls();
+    $$("#predictionPanel [data-graph-view]").forEach(btn => btn.classList.toggle("active", btn.dataset.graphView === state.activeGraph));
+    $("summaryGraph").classList.toggle("active", state.activeGraph === "actual");
+    $("forecastGraphs").classList.toggle("active", state.activeGraph === "forecast");
+    if (state.activeGraph === "actual") renderSummaryGraph();
+    else renderPrediction();
   }
 
   function switchPrediction(view) {
     state.activePrediction = view;
-    $$("#predictionPanel .sub-tab").forEach(btn => btn.classList.toggle("active", btn.dataset.predictionView === view));
+    $$("#predictionPanel [data-prediction-view]").forEach(btn => btn.classList.toggle("active", btn.dataset.predictionView === view));
     $("predictionTableView").classList.toggle("active", view === "table");
     $("predictionChartView").classList.toggle("active", view === "chart");
+    updateGraphControls();
     renderPrediction();
   }
 
@@ -725,7 +758,6 @@
     updateSummaryControls();
     if (state.activeSummary === "weekly") renderWeeklySummary();
     if (state.activeSummary === "monthly") renderMonthlySummary();
-    if (state.activeSummary === "graph") renderSummaryGraph();
     fitResponsiveTables($("summaryPanel"));
   }
 
@@ -828,7 +860,7 @@
     const dialog = $("graphFullscreenDialog");
     if (!dialog.contains($("summaryGraph"))) return;
     if (dialog.open) dialog.close();
-    $("summaryPanel").insertBefore($("summaryGraph"), document.querySelector(".summary-bottom-tabs"));
+    $("predictionPanel").insertBefore($("summaryGraph"), $("forecastGraphs"));
     document.body.classList.remove("graph-fullscreen-active");
     updateGraphFullscreenButton(false);
     requestAnimationFrame(() => state.charts.summary?.resize());
@@ -851,18 +883,17 @@
     const inData = [];
     const outData = [];
     const inventoryData = [];
+    const typeId = $("graphType").value;
+    const roomId = $("graphRoom").value;
     days.forEach(day => {
       const ymd = dateToStr(day);
-      const rows = filterEntries(ymd, ymd, $("summaryType").value, $("summaryRoom").value);
+      const rows = filterEntries(ymd, ymd, typeId, roomId);
       inData.push(round2(sum(rows, "in_qty")));
       outData.push(round2(sum(rows, "out_qty")));
-      inventoryData.push(round2(inventoryAsOf(ymd, $("summaryType").value, $("summaryRoom").value)));
+      inventoryData.push(round2(inventoryAsOf(ymd, typeId, roomId)));
     });
 
     const canvas = $("summaryChart");
-    const typeId = $("summaryType").value;
-    const roomId = $("summaryRoom").value;
-    $("graphFilterContext").textContent = `${typeId === "All" || !typeId ? "全体" : typeName(typeId)} / ${roomId === "All" || !roomId ? "全室" : roomName(roomId)}`;
     if (typeof Chart === "undefined") return;
     if (state.charts.summary) state.charts.summary.destroy();
     state.charts.summary = new Chart(canvas, {
@@ -940,7 +971,7 @@
       }
     });
 
-    let storage = latestStorageTotal(addDays(parseYmd(start), -1), typeId);
+    let storage = latestStorageTotal(addDays(parseYmd(start), -1), typeId).total;
     map.forEach(item => {
       const actual = latestStorageTotal(parseYmd(item.date), typeId, item.date);
       if (actual.hasActualOnDate) storage = actual.total;

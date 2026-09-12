@@ -62,6 +62,8 @@ async function testMaturation(browser, scenario, unlocked) {
     };
     const showForecast = async (baseDate, start = '2025-12-25', end = '2026-12-01') => {
       await page.locator('[data-tab="prediction"]').click();
+      await page.locator('[data-graph-view="forecast"]').click();
+      await page.locator('[data-prediction-view="table"]').click();
       await page.locator('#predictionStartDate').fill(start);
       await page.locator('#predictionEndDate').fill(end);
       const writes = backend.writes.length;

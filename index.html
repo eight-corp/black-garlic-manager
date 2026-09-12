@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>黒にんにく管理</title>
-  <link rel="stylesheet" href="./styles.css?v=20260912-harvest-base-date">
+  <link rel="stylesheet" href="./styles.css?v=20260912-actual-forecast-graphs">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -37,7 +37,7 @@
       <button type="button" class="tab active" data-tab="main"><i data-lucide="clipboard-pen-line"></i><span>出庫・入庫</span></button>
       <button type="button" class="tab" data-tab="storage"><i data-lucide="warehouse"></i><span>保管庫</span></button>
       <button type="button" class="tab" data-tab="summary"><i data-lucide="table-2"></i><span>集計</span></button>
-      <button type="button" class="tab" data-tab="prediction"><i data-lucide="chart-line"></i><span>予測</span></button>
+      <button type="button" class="tab" data-tab="prediction"><i data-lucide="chart-line"></i><span>グラフ</span></button>
       <button type="button" class="tab" data-tab="master"><i data-lucide="settings-2"></i><span>マスタ</span></button>
     </nav>
 
@@ -145,8 +145,22 @@
       </fieldset>
       <div id="weeklySummary" class="summary-view active"></div>
       <div id="monthlySummary" class="summary-view"></div>
-      <div id="summaryGraph" class="summary-view">
-        <p id="graphFilterContext" class="graph-filter-context"></p>
+      <nav class="sub-tabs summary-bottom-tabs" aria-label="集計表示の切り替え">
+        <button type="button" class="sub-tab active" data-summary-view="weekly">週毎</button>
+        <button type="button" class="sub-tab" data-summary-view="monthly">月毎</button>
+      </nav>
+    </section>
+
+    <section id="predictionPanel" class="panel" data-panel="prediction">
+      <div class="section-title">
+        <h2>グラフ</h2>
+        <button id="graphPrintBtn" type="button" class="secondary"><i data-lucide="printer"></i><span>印刷</span></button>
+      </div>
+      <div id="summaryGraph" class="graph-view active">
+        <div class="summary-controls actual-graph-filters">
+          <label>種別<select id="graphType"></select></label>
+          <label>室名<select id="graphRoom"></select></label>
+        </div>
         <div class="summary-controls graph-controls">
           <label>開始日<input id="graphStartDate" type="date"></label>
           <label>終了日<input id="graphEndDate" type="date"></label>
@@ -160,37 +174,31 @@
         </div>
         <div class="chart-box"><canvas id="summaryChart" role="img" aria-label="入庫・出庫・在庫の推移"></canvas></div>
       </div>
-      <nav class="sub-tabs summary-bottom-tabs" aria-label="集計表示の切り替え">
-        <button type="button" class="sub-tab active" data-summary-view="weekly">週毎</button>
-        <button type="button" class="sub-tab" data-summary-view="monthly">月毎</button>
-        <button type="button" class="sub-tab" data-summary-view="graph">グラフ</button>
+      <div id="forecastGraphs" class="graph-view">
+        <div class="summary-controls prediction-controls">
+          <label>開始日<input id="predictionStartDate" type="date"></label>
+          <label>終了日<input id="predictionEndDate" type="date"></label>
+          <label>種別<select id="predictionType"></select></label>
+          <label>室名<select id="predictionRoom"></select></label>
+          <label>日平均使用列数<input id="avgUsage" type="number" step="0.01" min="0" inputmode="decimal"></label>
+          <button id="predictionRefreshBtn" type="button" class="icon-btn" title="更新" aria-label="更新"><i data-lucide="refresh-cw"></i></button>
+        </div>
+        <p class="hint">在庫数は16枚で1列、端数は枚数です。出庫予測は出庫数2で1枚、16枚で1列として保管列に換算します。日平均使用列数は日曜日を除いて差し引きます。</p>
+        <div class="sub-tabs">
+          <button type="button" class="sub-tab" data-prediction-view="table">予測出庫数</button>
+          <button type="button" class="sub-tab active" data-prediction-view="chart">出庫予測グラフ</button>
+        </div>
+        <div id="predictionTableView" class="prediction-view">
+          <div id="predictionTable" class="table-wrap"></div>
+        </div>
+        <div id="predictionChartView" class="prediction-view active">
+          <div class="chart-box"><canvas id="predictionChart" role="img" aria-label="出庫予測と保管数の推移"></canvas></div>
+        </div>
+      </div>
+      <nav class="sub-tabs graphs-bottom-tabs" aria-label="グラフ表示の切り替え">
+        <button type="button" class="sub-tab active" data-graph-view="actual">実績</button>
+        <button type="button" class="sub-tab" data-graph-view="forecast">予測</button>
       </nav>
-    </section>
-
-    <section id="predictionPanel" class="panel" data-panel="prediction">
-      <div class="section-title">
-        <h2>出庫予測</h2>
-        <span class="muted">熟成日数は室名と収穫からの経過日数区分で判定します。</span>
-      </div>
-      <div class="summary-controls">
-        <label>開始日<input id="predictionStartDate" type="date"></label>
-        <label>終了日<input id="predictionEndDate" type="date"></label>
-        <label>種別<select id="predictionType"></select></label>
-        <label>室名<select id="predictionRoom"></select></label>
-        <label>日平均使用列数<input id="avgUsage" type="number" step="0.01" min="0" inputmode="decimal"></label>
-        <button id="predictionRefreshBtn" type="button"><i data-lucide="refresh-cw"></i><span>更新</span></button>
-      </div>
-      <p class="hint">在庫数は16枚で1列、端数は枚数です。出庫予測は出庫数2で1枚、16枚で1列として保管列に換算します。日平均使用列数は日曜日を除いて差し引きます。</p>
-      <div class="sub-tabs">
-        <button type="button" class="sub-tab active" data-prediction-view="table">予測出庫数</button>
-        <button type="button" class="sub-tab" data-prediction-view="chart">出庫予測グラフ</button>
-      </div>
-      <div id="predictionTableView" class="prediction-view active">
-        <div id="predictionTable" class="table-wrap"></div>
-      </div>
-      <div id="predictionChartView" class="prediction-view">
-        <div class="chart-box"><canvas id="predictionChart"></canvas></div>
-      </div>
     </section>
 
     <section id="masterPanel" class="panel" data-panel="master">
@@ -205,6 +213,6 @@
 
   <dialog id="graphFullscreenDialog" class="graph-fullscreen-dialog" aria-label="入出庫・在庫グラフの全画面表示"></dialog>
   <div id="toast" class="toast hidden"></div>
-  <script src="./app.js?v=20260912-harvest-base-date"></script>
+  <script src="./app.js?v=20260912-actual-forecast-graphs"></script>
 </body>
 </html>
