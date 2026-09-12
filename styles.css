@@ -499,20 +499,31 @@ th,
 td {
   padding: 7px 8px;
   border-bottom: 1px solid var(--line);
+  border-right: 1px solid var(--line);
   text-align: right;
   vertical-align: middle;
+}
+
+th:last-child,
+td:last-child {
+  border-right: 0;
 }
 
 th {
   color: var(--muted);
   background: var(--soft);
   font-weight: 800;
+  text-align: center;
 }
 
 td:first-child,
 th:first-child,
 .text-left {
   text-align: left;
+}
+
+.table-wrap .responsive-fit-table thead th {
+  text-align: center;
 }
 
 tr.clickable {
