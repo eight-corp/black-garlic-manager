@@ -664,6 +664,7 @@
       tr.addEventListener("click", () => loadMainRow(state.data.entries.find(row => row.id === tr.dataset.mainId)));
     });
     fitResponsiveTables($("mainHistory"));
+    createIcons();
   }
 
   async function saveStorageEntry() {
@@ -738,7 +739,6 @@
     const rows = state.data.storageEntries
       .filter(row => row.storage_date === date && isVisibleStorageEntry(row) && (typeId === "All" || !typeId || row.storage_type_id === typeId))
       .sort((a, b) => compareDisplay(storageTypeName(a.storage_type_id), storageTypeName(b.storage_type_id)));
-    const totalColumns = rows.reduce((sum, row) => sum + storageColumns(row), 0);
     const body = rows.map(row => `
       <tr class="clickable" data-storage-id="${esc(row.id)}">
         <td class="text-left">${esc(fmtDate(row.storage_date))}</td>
@@ -754,7 +754,7 @@
     $("storageHistory").innerHTML = `
       <table>
         <thead><tr><th>日付</th><th>作業者</th><th>種別</th><th>16段</th><th>端数</th><th>列換算</th><th>備考</th><th>削除</th></tr></thead>
-        <tbody>${body || emptyRow(8)}<tr class="total-row"><td colspan="5">合計</td><td>${num(totalColumns)}</td><td></td><td></td></tr></tbody>
+        <tbody>${body || emptyRow(8)}</tbody>
       </table>
     `;
     $("storageHistory").querySelectorAll("[data-storage-delete]").forEach(button => {
@@ -767,6 +767,7 @@
       tr.addEventListener("click", () => loadStorageRow(state.data.storageEntries.find(row => row.id === tr.dataset.storageId)));
     });
     fitResponsiveTables($("storageHistory"));
+    createIcons();
   }
 
   function renderSummary() {

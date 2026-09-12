@@ -924,6 +924,10 @@ tr.clickable:hover {
     line-height: 1.25;
   }
 
+  .main-history-table .action-cell {
+    padding-inline: 0;
+  }
+
   .row-delete-btn {
     width: 28px;
     min-width: 28px;
