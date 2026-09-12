@@ -15,7 +15,7 @@ async function scenario(browser, options = {}) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'ja-JP', timezoneId: 'Asia/Tokyo' });
   const backend = {
     role: options.role ?? 'admin', loggedIn: options.loggedIn ?? true,
-    reads: [], writes: [], logins: 0, logouts: 0, errors: [],
+    reads: [], readQueries: [], writes: [], logins: 0, logouts: 0, errors: [],
     db: {
       workers: [{ worker_id: 'other', worker_name: 'Other', active: true, note: 'PIN:111111' }, { worker_id: 'tester', worker_name: workerName, active: false, note: 'PIN:999999' }],
       black_garlic_rooms: [{ id: 'room', room_name: '\u516d\u6238\u2460', active: true }],
@@ -83,6 +83,7 @@ async function scenario(browser, options = {}) {
     assert.equal(suppliedToken, token);
     if (request.method() === 'GET') {
       backend.reads.push(resource);
+      backend.readQueries.push({ resource, params: Object.fromEntries(url.searchParams) });
       const rows = backend.db[resource].filter(row => matches(row, url));
       const order = url.searchParams.get('order');
       if (order) rows.sort((a, b) => {
@@ -93,7 +94,10 @@ async function scenario(browser, options = {}) {
         }
         return 0;
       });
-      return reply(route, rows);
+      const offset = Number(url.searchParams.get('offset') || 0);
+      const limit = Math.min(Number(url.searchParams.get('limit') || rows.length), options.pageLimit ?? 1000);
+      const data = rows.slice(offset, offset + limit);
+      return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-expose-headers': 'content-range', 'content-range': data.length ? offset + '-' + (offset + data.length - 1) + '/' + rows.length : '*/' + rows.length }, body: JSON.stringify(data) });
     }
     assert.ok(valid);
     const master = !['black_garlic_entries', 'black_garlic_storage_entries', 'black_garlic_settings'].includes(resource);
@@ -491,6 +495,31 @@ async function run() {
     assert.deepEqual(rooms.backend.errors, []);
     results.metricRoomAndTypeFiltersTotalsHiddenMastersStockSnapshotsAndCarryForward = true;
     await rooms.context.close();
+
+    const paginated = await scenario(browser, { pageLimit: 700 });
+    const template = paginated.backend.db.black_garlic_entries[0];
+    const firstDate = new Date('2023-01-01T00:00:00Z');
+    paginated.backend.db.black_garlic_entries = Array.from({ length: 1164 }, (_, index) => {
+      const date = new Date(firstDate);
+      date.setUTCDate(date.getUTCDate() + index);
+      return { ...template, id: 'page-' + String(index).padStart(4, '0'), entry_date: date.toISOString().slice(0, 10), inventory_qty: index, out_qty: 1, in_qty: 2, empty_qty: 3 };
+    });
+    await paginated.page.goto(appUrl); await unlocked(paginated.page);
+    const mainPages = paginated.backend.readQueries.filter(query => query.resource === 'black_garlic_entries' && !query.params.room_id);
+    assert.deepEqual(mainPages.map(query => Number(query.params.offset || 0)), [0, 700]);
+    for (const index of [0, 699, 700, 1163]) {
+      await paginated.page.locator('#mainHistoryDate').fill(paginated.backend.db.black_garlic_entries[index].entry_date);
+      assert.equal(await paginated.page.locator('#mainHistory [data-main-id]').count(), 1);
+      assert.equal(await paginated.page.locator('#mainHistory [data-main-id]').getAttribute('data-main-id'), 'page-' + String(index).padStart(4, '0'));
+    }
+    await paginated.page.locator('[data-tab="summary"]').click();
+    await paginated.page.locator('#summaryStartDate').fill(paginated.backend.db.black_garlic_entries[1163].entry_date);
+    await chooseSummaryMetric(paginated.page, 'inventory');
+    assert.equal(await paginated.page.locator('#weeklySummary [data-summary-date="' + paginated.backend.db.black_garlic_entries[1163].entry_date + '"] .total-col').textContent(), '1,163');
+    assert.equal(paginated.backend.writes.length, 0);
+    assert.deepEqual(paginated.backend.errors, []);
+    results.all1164RowsLoadedDespiteServerPageLimit700 = true;
+    await paginated.context.close();
 
     for (const role of ['operator', 'viewer']) {
       const test = await scenario(browser, { role });

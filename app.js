@@ -272,11 +272,20 @@
   }
 
   async function selectAll(table, configure) {
-    let query = state.client.from(table).select("*").range(0, 49999);
-    if (configure) query = configure(query);
-    const { data, error } = await query;
-    if (error) throw error;
-    return data || [];
+    const rows = [];
+    for (;;) {
+      let query = state.client.from(table).select("*", { count: "exact" }).range(rows.length, rows.length + 999);
+      if (configure) query = configure(query);
+      if (table !== TABLES.workers && table !== TABLES.settings) query = query.order("id");
+      const { data, error, count } = await query;
+      if (error) throw error;
+      rows.push(...(data || []));
+      if (count !== null && count !== undefined && rows.length >= count) return rows;
+      if (!data || !data.length) {
+        if (count !== null && count !== undefined && rows.length < count) throw new Error("データを全件取得できませんでした。更新してください。");
+        return rows;
+      }
+    }
   }
 
   function renderAll() {
