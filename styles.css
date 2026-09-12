@@ -273,8 +273,12 @@ button svg {
   align-items: end;
 }
 
-.main-summary-controls {
-  grid-template-columns: minmax(250px, 1.7fr) repeat(2, minmax(0, 1fr)) minmax(86px, .6fr);
+.summary-controls.main-summary-controls {
+  grid-template-columns: minmax(250px, 1.7fr) repeat(2, minmax(0, 1fr)) 38px;
+}
+
+.main-summary-controls > label {
+  min-width: 0;
 }
 
 .summary-date-controls {
@@ -287,6 +291,14 @@ button svg {
 
 .summary-date-controls .icon-btn {
   grid-column: auto;
+}
+
+.summary-date-controls > label {
+  grid-column: 1 / -1;
+}
+
+.summary-date-controls > input {
+  font-size: 12px;
 }
 
 .summary-date-controls button:disabled {
@@ -900,8 +912,43 @@ tr.clickable:hover {
     grid-column: 1 / -1;
   }
 
-  .summary-date-controls {
-    grid-column: 1 / -1;
+  .summary-controls.main-summary-controls {
+    grid-template-columns: minmax(162px, 1.8fr) repeat(2, minmax(40px, .65fr)) 30px;
+    gap: 3px;
+  }
+
+  .main-summary-controls label {
+    font-size: 11px;
+  }
+
+  .main-summary-controls input,
+  .main-summary-controls select {
+    min-height: 34px;
+    padding: 5px 2px;
+    font-size: 11px;
+  }
+
+  .main-summary-controls input[type="date"] {
+    min-width: 106px;
+  }
+
+  .main-summary-controls .summary-date-controls {
+    grid-column: auto;
+    grid-template-columns: minmax(106px, 1fr) 26px 26px;
+    gap: 4px 2px;
+  }
+
+  .main-summary-controls .icon-btn {
+    grid-column: auto;
+    width: 30px;
+    min-width: 30px;
+    min-height: 34px;
+    padding: 0;
+  }
+
+  .main-summary-controls .summary-date-controls .icon-btn {
+    width: 26px;
+    min-width: 26px;
   }
 
   .main-history-controls {

@@ -200,9 +200,10 @@ async function run() {
           const previous = element.querySelector('#summaryPrevDateBtn').getBoundingClientRect();
           const next = element.querySelector('#summaryNextDateBtn').getBoundingClientRect();
           const weekday = element.querySelector('#summaryStartDateWeekday').getBoundingClientRect();
-          return element.scrollWidth <= element.clientWidth && date.width >= 130 && weekday.right <= previous.left &&
+          const dateGroup = element.querySelector('.summary-date-controls').getBoundingClientRect();
+          return fields.length === 6 && element.scrollWidth <= element.clientWidth && date.width >= 106 && weekday.right <= dateGroup.right &&
             previous.left >= date.right && next.left >= previous.right && Math.abs(previous.top - date.top) < 1 && Math.abs(next.top - date.top) < 1 &&
-            fields.every(field => { const r = field.getBoundingClientRect(); return r.left >= bounds.left && r.right <= bounds.right + .5; });
+            fields.every((field, index) => { const r = field.getBoundingClientRect(); return r.left >= bounds.left && r.right <= bounds.right + .5 && Math.abs(r.top - date.top) < 1 && (!index || r.left >= fields[index - 1].getBoundingClientRect().right); });
         }), view + ':' + width);
         if (artifacts && [390, 943].includes(width)) await app.screenshot({ path: path.join(artifacts, 'summary-date-controls-' + view + '-' + width + '.png'), fullPage: true });
       }
@@ -308,6 +309,58 @@ async function run() {
     assert.deepEqual(backend.errors, []);
     results.menuLoginNewTabRegistrationRolesMenuReturnLogout = true;
     await context.close();
+
+    const rooms = await scenario(browser);
+    const roomName2 = '\u516d\u6238\u2461';
+    rooms.backend.db.black_garlic_rooms.push({ id: 'room2', room_name: roomName2, active: true }, { id: 'hidden-room', room_name: 'Hidden room', active: false });
+    rooms.backend.db.black_garlic_types.push({ id: 'type2', type_name: '\u9752\u5e78', active: true }, { id: 'hidden-type', type_name: 'Hidden type', active: false });
+    const sample = rooms.backend.db.black_garlic_entries[0];
+    rooms.backend.db.black_garlic_entries.push(
+      { ...sample, id: 'room2-entry', room_id: 'room2', out_qty: 1, in_qty: 6, empty_qty: 2, inventory_qty: 5 },
+      { ...sample, id: 'type2-entry', type_id: 'type2', out_qty: 4, in_qty: 7, empty_qty: 3, inventory_qty: 3 },
+      { ...sample, id: 'hidden-room-entry', room_id: 'hidden-room', out_qty: 100, in_qty: 200, empty_qty: 50, inventory_qty: 100 },
+      { ...sample, id: 'hidden-type-entry', type_id: 'hidden-type', out_qty: 100, in_qty: 300, empty_qty: 100, inventory_qty: 200 }
+    );
+    await rooms.page.goto(appUrl); await unlocked(rooms.page);
+    await rooms.page.locator('[data-tab="summary"]').click();
+    await rooms.page.locator('#summaryStartDate').fill('2026-09-11');
+    assert.equal(await rooms.page.locator('#summaryRoomFilter').isVisible(), true);
+    assert.deepEqual(await rooms.page.locator('#summaryRoom option').evaluateAll(options => options.map(option => option.value)), ['All', 'room', 'room2']);
+    for (const [type, room, count, totals] of [
+      ['All', 'All', 2, ['7', '23', '6', '16']],
+      ['All', 'room', 1, ['6', '17', '4', '11']],
+      ['type', 'All', 2, ['3', '16', '3', '13']],
+      ['type', 'room2', 1, ['1', '6', '2', '5']],
+      ['type2', 'room2', 1, ['0', '0', '0', '0']]
+    ]) {
+      await rooms.page.locator('#summaryType').selectOption(type);
+      await rooms.page.locator('#summaryRoom').selectOption(room);
+      await rooms.page.locator('#summaryRefreshBtn').click();
+      const tables = rooms.page.locator('#dailySummary table');
+      assert.equal(await tables.count(), 7);
+      for (let day = 0; day < 7; day++) {
+        assert.equal(await tables.nth(day).locator('tbody tr:not(.total-row)').count(), count);
+        assert.equal(await tables.nth(day).locator('.total-row').count(), 1);
+      }
+      const values = await tables.first().locator('.total-row td').allTextContents();
+      assert.deepEqual(values.slice(2, 6), totals);
+      if (room === 'room2') {
+        assert.equal(await tables.first().locator('tbody tr').first().locator('td').first().textContent(), roomName2);
+        assert.ok((await rooms.page.locator('#dailySummary .print-title').first().textContent()).includes(roomName2));
+      }
+    }
+    await rooms.page.locator('#summaryType').selectOption('type');
+    await rooms.page.locator('#summaryRoom').selectOption('room2');
+    await rooms.page.locator('[data-summary-view="weekly"]').click();
+    await rooms.page.locator('[data-summary-view="daily"]').click();
+    assert.equal(await rooms.page.locator('#summaryRoom').inputValue(), 'room2');
+    await rooms.page.locator('#summaryNextDateBtn').click();
+    const carriedInventory = await rooms.page.locator('#dailySummary table').first().locator('.total-row td').allTextContents();
+    assert.deepEqual(carriedInventory.slice(2, 6), ['0', '0', '0', '5']);
+    assert.equal(rooms.backend.writes.length, 0);
+    assert.deepEqual(rooms.backend.errors, []);
+    results.dailyRoomAndTypeFiltersSevenTablesTotalsHiddenMastersAndCarryForward = true;
+    await rooms.context.close();
 
     for (const role of ['operator', 'viewer']) {
       const test = await scenario(browser, { role });

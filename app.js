@@ -356,7 +356,6 @@
   }
 
   function updateSummaryControls() {
-    $("summaryRoomFilter").classList.toggle("hidden", state.activeSummary === "daily");
     const startDate = $("summaryStartDate");
     startDate.max = todayStr();
     if (!startDate.value || startDate.value > startDate.max) startDate.value = startDate.max;
@@ -672,9 +671,11 @@
   function renderDailySummary() {
     const base = parseYmd($("summaryStartDate").value);
     const typeId = $("summaryType").value;
+    const roomId = $("summaryRoom").value;
     const days = Array.from({ length: 7 }, (_, index) => addDays(base, -index));
-    const rooms = activeRows(state.data.rooms);
+    const rooms = activeRows(state.data.rooms).filter(room => roomId === "All" || !roomId || room.id === roomId);
     const typeLabel = typeId === "All" || !typeId ? "全体" : typeName(typeId);
+    const roomLabel = roomId === "All" || !roomId ? "" : ` / ${roomName(roomId)}`;
     const sections = days.map(day => {
       const ymd = dateToStr(day);
       const roomRows = rooms.map(room => {
@@ -708,7 +709,7 @@
         ""
       ]);
       return `
-        <h2 class="print-title">${esc(fmtDate(ymd))} 日毎集計（${esc(typeLabel)}）</h2>
+        <h2 class="print-title">${esc(fmtDate(ymd))} 日毎集計（${esc(typeLabel + roomLabel)}）</h2>
         ${tableHtml(["室名", "作業者名", "出庫", "入庫", "空き", "在庫", "備考"], displayRows, [0, 1, 6], displayRows.length - 1)}
       `;
     });
