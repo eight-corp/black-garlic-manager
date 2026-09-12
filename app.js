@@ -34,6 +34,7 @@
     activePrediction: "chart",
     data: emptyData(),
     drafts: {},
+    graphFullscreen: null,
     charts: {
       summary: null,
       prediction: null
@@ -127,6 +128,20 @@
     $("graphFullscreenDialog").addEventListener("close", () => {
       if (!$("graphFullscreenDialog").open) closeGraphFullscreen();
     });
+    document.addEventListener("fullscreenchange", () => {
+      const fullscreen = state.graphFullscreen;
+      if (!fullscreen) return;
+      if (document.fullscreenElement === $("summaryGraph")) {
+        fullscreen.nativeEntered = true;
+        resizeFullscreenGraph();
+      } else if (fullscreen.nativeEntered) {
+        closeGraphFullscreen();
+      }
+    });
+    window.addEventListener("resize", resizeFullscreenGraph);
+    window.addEventListener("orientationchange", resizeFullscreenGraph);
+    window.screen.orientation?.addEventListener("change", resizeFullscreenGraph);
+    window.visualViewport?.addEventListener("resize", resizeFullscreenGraph);
     window.addEventListener("beforeprint", () => {
       closeGraphFullscreen();
       if (state.activeTab === "prediction") {
@@ -851,14 +866,63 @@
     dialog.appendChild($("summaryGraph"));
     dialog.showModal();
     document.body.classList.add("graph-fullscreen-active");
+    state.graphFullscreen = { nativeEntered: false, orientationRequested: false, resizeFrame: 0, resizeTimer: 0 };
     updateGraphFullscreenButton(true);
     $("graphFullscreenBtn").focus();
-    requestAnimationFrame(() => state.charts.summary?.resize());
+    resizeFullscreenGraph();
+    enableFullscreenGraphRotation(state.graphFullscreen);
+  }
+
+  async function enableFullscreenGraphRotation(fullscreen) {
+    const graph = $("summaryGraph");
+    if (!window.matchMedia("(pointer: coarse)").matches || !document.fullscreenEnabled || typeof graph.requestFullscreen !== "function") return;
+    try {
+      await graph.requestFullscreen({ navigationUI: "hide" });
+      if (state.graphFullscreen !== fullscreen || !$("graphFullscreenDialog").open) {
+        if (!state.graphFullscreen && document.fullscreenElement === graph) await document.exitFullscreen();
+        return;
+      }
+      fullscreen.nativeEntered = document.fullscreenElement === graph;
+      if (fullscreen.nativeEntered && typeof window.screen.orientation?.lock === "function") {
+        fullscreen.orientationRequested = true;
+        await window.screen.orientation.lock("any");
+      }
+    } catch (error) {
+      // Restricted browsers retain the responsive dialog without native rotation control.
+    } finally {
+      if (state.graphFullscreen === fullscreen) resizeFullscreenGraph();
+    }
+  }
+
+  function resizeFullscreenGraph() {
+    const fullscreen = state.graphFullscreen;
+    if (!fullscreen || !$("graphFullscreenDialog").open) return;
+    cancelAnimationFrame(fullscreen.resizeFrame);
+    clearTimeout(fullscreen.resizeTimer);
+    const resize = () => {
+      if (state.graphFullscreen === fullscreen && $("graphFullscreenDialog").open) state.charts.summary?.resize();
+    };
+    fullscreen.resizeFrame = requestAnimationFrame(resize);
+    fullscreen.resizeTimer = setTimeout(resize, 250);
   }
 
   function closeGraphFullscreen() {
     const dialog = $("graphFullscreenDialog");
     if (!dialog.contains($("summaryGraph"))) return;
+    const fullscreen = state.graphFullscreen;
+    state.graphFullscreen = null;
+    if (fullscreen) {
+      cancelAnimationFrame(fullscreen.resizeFrame);
+      clearTimeout(fullscreen.resizeTimer);
+      if (fullscreen.orientationRequested) {
+        try {
+          window.screen.orientation?.unlock();
+        } catch (error) {
+          // Some embedded browsers cannot change the default screen orientation.
+        }
+      }
+    }
+    if (document.fullscreenElement === $("summaryGraph")) document.exitFullscreen().catch(() => {});
     if (dialog.open) dialog.close();
     $("predictionPanel").insertBefore($("summaryGraph"), $("forecastGraphs"));
     document.body.classList.remove("graph-fullscreen-active");

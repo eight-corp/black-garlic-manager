@@ -12,7 +12,7 @@ const workerName = '\u30c6\u30b9\u30c8\u4f5c\u696d\u8005';
 const artifacts = process.env.QA_ARTIFACTS;
 
 async function scenario(browser, options = {}) {
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'ja-JP', timezoneId: 'Asia/Tokyo' });
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: !!options.mobile, hasTouch: !!options.mobile, locale: 'ja-JP', timezoneId: 'Asia/Tokyo' });
   const backend = {
     role: options.role ?? 'admin', loggedIn: options.loggedIn ?? true,
     reads: [], readQueries: [], writes: [], logins: 0, logouts: 0, errors: [],
@@ -726,6 +726,7 @@ async function run() {
     await paginated.context.close();
 
     results.maturationBaseDateBoundariesRoomsZeroDayFallbackDraftPersistenceReloadAndLeapYear = await require('./maturation.cjs')(browser, scenario, unlocked);
+    results.fullscreenGraphPortraitLandscapeRotationScopedNativeExitFallbackAndPendingCleanup = await require('./graph-rotation.cjs')(browser, scenario, unlocked);
 
     for (const role of ['operator', 'viewer']) {
       const test = await scenario(browser, { role });
