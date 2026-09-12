@@ -149,6 +149,11 @@
     });
 
     $("masterPanel").addEventListener("click", handleMasterClick);
+    $("masterPanel").addEventListener("change", event => {
+      if (event.target.id !== "harvestBaseDate" || !can("admin")) return;
+      state.drafts.maturation.harvestBaseDate = event.target.value;
+      updateDateWeekday("harvestBaseDate", "harvestBaseDateWeekday");
+    });
     $("masterSaveBtn").addEventListener("click", () => saveMaster().catch(showError));
   }
 
@@ -974,15 +979,16 @@
 
   function maturationDays(entry) {
     const lot = state.data.lots.find(item => item.id === entry.harvest_lot_id);
-    if (!lot || !lot.harvest_date) return 30;
-    const elapsed = diffDays(parseYmd(lot.harvest_date), parseYmd(entry.entry_date));
+    const baseDate = state.data.settings.maturation?.harvestBaseDate || lot?.harvest_date;
+    if (!baseDate) return 30;
+    const elapsed = diffDays(parseYmd(baseDate), parseYmd(entry.entry_date));
     const bracket = activeRows(state.data.brackets).find(item =>
       elapsed >= Number(item.min_days || 0) &&
       (item.max_days === null || item.max_days === undefined || elapsed <= Number(item.max_days))
     );
     if (!bracket) return 30;
     const rule = state.data.rules.find(item => item.room_id === entry.room_id && item.age_bracket_id === bracket.id);
-    return Math.max(0, Math.floor(Number(rule && rule.maturation_days || 30)));
+    return Math.max(0, Math.floor(Number(rule?.maturation_days ?? 30)));
   }
 
   function resetDrafts() {
@@ -991,7 +997,8 @@
       types: state.data.types.map(clone),
       storageTypes: state.data.storageTypes.map(clone),
       lots: state.data.lots.map(clone),
-      brackets: state.data.brackets.map(clone)
+      brackets: state.data.brackets.map(clone),
+      maturation: { harvestBaseDate: state.data.settings.maturation?.harvestBaseDate || "" }
     };
   }
 
@@ -1002,6 +1009,7 @@
         .filter(Boolean)
     );
     renderRoomAndTypeMaster(openSections);
+    updateDateWeekday("harvestBaseDate", "harvestBaseDateWeekday");
     fitResponsiveTables($("masterPanel"));
     createIcons();
   }
@@ -1085,6 +1093,10 @@
       <details class="master-section maturation-master-section" data-master-section="maturation" ${openSections.has("maturation") ? "open" : ""}>
         <summary>熟成日数表</summary>
         <div class="master-body">
+          <label class="harvest-base-date-field">
+            <span>収穫基準日<span id="harvestBaseDateWeekday" class="weekday-inline"></span></span>
+            <input id="harvestBaseDate" type="date" value="${esc(state.drafts.maturation.harvestBaseDate)}">
+          </label>
           ${bracketEditor}
           ${matrix}
         </div>
@@ -1112,6 +1124,7 @@
   }
 
   function collectMasterInputs() {
+    state.drafts.maturation.harvestBaseDate = $("harvestBaseDate").value;
     $$(".master-row[data-draft]").forEach(rowEl => {
       const draftKey = rowEl.dataset.draft;
       const index = Number(rowEl.dataset.index);
@@ -1155,6 +1168,7 @@
       await saveLotsDraft();
       await saveBracketsDraft();
       await saveMaturationRules();
+      await saveMaturationSettings();
       await loadAll();
       renderAll();
       toast("マスタを保存しました");
@@ -1162,6 +1176,10 @@
   }
 
   function validateMasterDrafts() {
+    const baseDate = state.drafts.maturation.harvestBaseDate;
+    if (baseDate && (!/^\d{4}-\d{2}-\d{2}$/.test(baseDate) || dateToStr(parseYmd(baseDate)) !== baseDate)) {
+      throw new Error("収穫基準日を正しく選択してください。");
+    }
     validateSimpleMasterDraft("rooms", "room_name", "室名", isRoomUsed);
     validateSimpleMasterDraft("types", "type_name", "室種別", isTypeUsed);
     validateSimpleMasterDraft("storageTypes", "type_name", "保管庫種別", isStorageTypeUsed);
@@ -1347,6 +1365,18 @@
         }, { onConflict: "room_id,age_bracket_id" }));
       }
     }
+  }
+
+  async function saveMaturationSettings() {
+    const harvestBaseDate = state.drafts.maturation.harvestBaseDate;
+    const current = state.data.settings.maturation || {};
+    if (harvestBaseDate === (current.harvestBaseDate || "")) return;
+    const value = { ...current, harvestBaseDate };
+    await assertOk(state.client.from(TABLES.settings).upsert({
+      setting_key: "maturation",
+      setting_value: value
+    }));
+    state.data.settings.maturation = value;
   }
 
   function uniqueDraftRows(rows, nameKey) {

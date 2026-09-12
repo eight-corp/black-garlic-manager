@@ -907,6 +907,15 @@ body.graph-fullscreen-active { overflow: hidden; }
   font-weight: 800;
 }
 
+.harvest-base-date-field {
+  width: min(100%, 240px);
+  margin-bottom: 12px;
+}
+
+#masterPanel .harvest-base-date-field input {
+  min-width: 0;
+}
+
 #masterPanel input,
 #masterPanel select {
   min-height: 34px;

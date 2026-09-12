@@ -108,8 +108,8 @@ async function scenario(browser, options = {}) {
     else if (request.method() === 'PATCH') backend.db[resource].filter(row => matches(row, url)).forEach(row => Object.assign(row, payload));
     else {
       assert.equal(request.method(), 'POST');
-      const key = resource === 'black_garlic_entries' ? ['entry_date', 'room_id', 'type_id', 'harvest_lot_id'] : resource === 'black_garlic_storage_entries' ? ['storage_date', 'storage_type_id'] : ['setting_key'];
-      const existing = backend.db[resource].find(row => key.every(field => row[field] === payload[field]));
+      const key = url.searchParams.get('on_conflict')?.split(',') || (resource === 'black_garlic_settings' ? ['setting_key'] : ['id']);
+      const existing = key.every(field => payload[field] !== undefined) && backend.db[resource].find(row => key.every(field => row[field] === payload[field]));
       if (existing) Object.assign(existing, payload);
       else backend.db[resource].push({ ...payload, id: 'new-' + backend.writes.length });
     }
@@ -652,6 +652,8 @@ async function run() {
     assert.deepEqual(paginated.backend.errors, []);
     results.all1164RowsLoadedDespiteServerPageLimit700 = true;
     await paginated.context.close();
+
+    results.maturationBaseDateBoundariesRoomsZeroDayFallbackDraftPersistenceReloadAndLeapYear = await require('./maturation.cjs')(browser, scenario, unlocked);
 
     for (const role of ['operator', 'viewer']) {
       const test = await scenario(browser, { role });
