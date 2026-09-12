@@ -400,7 +400,7 @@ button svg {
 
 .main-history-controls {
   display: grid;
-  grid-template-columns: minmax(150px, 1.4fr) minmax(82px, 1fr) 38px 38px;
+  grid-template-columns: minmax(150px, 1.4fr) 38px 38px minmax(82px, 1fr);
   gap: 6px;
   align-items: end;
 }
@@ -844,7 +844,7 @@ tr.clickable:hover {
   }
 
   .main-history-controls {
-    grid-template-columns: minmax(126px, 1.3fr) minmax(68px, .85fr) 34px 34px;
+    grid-template-columns: minmax(126px, 1.3fr) 34px 34px minmax(68px, .85fr);
     gap: 4px;
   }
 

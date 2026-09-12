@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>黒にんにく管理</title>
-  <link rel="stylesheet" href="./styles.css?v=20260912-compact-entry-rows">
+  <link rel="stylesheet" href="./styles.css?v=20260912-history-button-order">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -93,9 +93,9 @@
           <span class="field-label">履歴表示日<span id="mainHistoryDateWeekday" class="weekday-inline"></span></span>
           <input id="mainHistoryDate" type="date">
         </label>
-        <label>種別<select id="mainHistoryType"></select></label>
         <button id="mainPrevDateBtn" type="button" class="icon-btn secondary" title="前日"><i data-lucide="chevron-left"></i></button>
         <button id="mainNextDateBtn" type="button" class="icon-btn secondary" title="翌日"><i data-lucide="chevron-right"></i></button>
+        <label>種別<select id="mainHistoryType"></select></label>
       </div>
       <div id="mainHistory" class="table-wrap main-history-wrap"></div>
     </section>
@@ -123,9 +123,9 @@
           <span class="field-label">履歴表示日<span id="storageHistoryDateWeekday" class="weekday-inline"></span></span>
           <input id="storageHistoryDate" type="date">
         </label>
-        <label>種別<select id="storageHistoryType"></select></label>
         <button id="storagePrevDateBtn" type="button" class="icon-btn secondary" title="前日"><i data-lucide="chevron-left"></i></button>
         <button id="storageNextDateBtn" type="button" class="icon-btn secondary" title="翌日"><i data-lucide="chevron-right"></i></button>
+        <label>種別<select id="storageHistoryType"></select></label>
       </div>
       <div id="storageHistory" class="table-wrap"></div>
     </section>
