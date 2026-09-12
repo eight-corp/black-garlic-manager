@@ -1088,7 +1088,7 @@
 
   function resetDrafts() {
     state.drafts = {
-      rooms: state.data.rooms.map(clone),
+      rooms: state.data.rooms.map(row => ({ ...clone(row), capacity_qty: state.data.settings.roomCapacities?.[row.id] ?? null })),
       types: state.data.types.map(clone),
       storageTypes: state.data.storageTypes.map(clone),
       lots: state.data.lots.map(clone),
@@ -1126,9 +1126,10 @@
         <div class="master-body">
           <div class="master-list">
             ${rows.map((row, index) => `
-              <div class="master-row ${showVisibility ? "visibility-master-row" : ""}" data-draft="${draftKey}" data-index="${index}">
+              <div class="master-row ${showVisibility ? "visibility-master-row" : ""} ${draftKey === "rooms" ? "room-master-row" : ""}" data-draft="${draftKey}" data-index="${index}">
                 <span class="master-index">${index + 1}</span>
                 <input data-field="${nameKey}" value="${esc(row[nameKey] || "")}" placeholder="${esc(label)}">
+                ${draftKey === "rooms" ? `<label class="room-capacity-field" title="在庫と同じ数量単位の目安。超過しても登録できます。"><span>収容能力</span><input data-field="capacity_qty" type="number" min="0" step="0.01" inputmode="decimal" value="${esc(row.capacity_qty ?? "")}" placeholder="未設定"></label>` : ""}
                 <button type="button" class="secondary icon-btn" data-master-action="up" title="上へ"><i data-lucide="arrow-up"></i></button>
                 <button type="button" class="secondary icon-btn" data-master-action="down" title="下へ"><i data-lucide="arrow-down"></i></button>
                 ${showVisibility ? visibilitySwitch(row.active !== false) : ""}
@@ -1237,7 +1238,7 @@
   function defaultDraftRow(draftKey) {
     if (draftKey === "lots") return { lot_name: "", harvest_date: todayStr(), active: true };
     if (draftKey === "brackets") return { label: "", min_days: 0, max_days: null, active: true };
-    if (draftKey === "rooms") return { room_name: "", active: true };
+    if (draftKey === "rooms") return { room_name: "", capacity_qty: null, active: true };
     if (draftKey === "types" || draftKey === "storageTypes") return { type_name: "", active: true };
     return {};
   }
@@ -1258,6 +1259,7 @@
       collectMasterInputs();
       validateMasterDrafts();
       await saveSimpleDraft("rooms", TABLES.rooms, "room_name", isRoomUsed);
+      await saveRoomCapacities();
       await saveSimpleDraft("types", TABLES.types, "type_name", isTypeUsed);
       await saveSimpleDraft("storageTypes", TABLES.storageTypes, "type_name", isStorageTypeUsed);
       await saveLotsDraft();
@@ -1276,6 +1278,12 @@
       throw new Error("収穫基準日を正しく選択してください。");
     }
     validateSimpleMasterDraft("rooms", "room_name", "室名", isRoomUsed);
+    state.drafts.rooms.forEach(row => {
+      if (!String(row.room_name || "").trim() || row.capacity_qty === null || row.capacity_qty === undefined) return;
+      if (!Number.isFinite(row.capacity_qty) || row.capacity_qty < 0) {
+        throw new Error(`収容能力は0以上の数値を入力してください: ${row.room_name}`);
+      }
+    });
     validateSimpleMasterDraft("types", "type_name", "室種別", isTypeUsed);
     validateSimpleMasterDraft("storageTypes", "type_name", "保管庫種別", isStorageTypeUsed);
     assertNoDuplicateDraftNames(state.drafts.brackets, "label", "区分名");
@@ -1344,6 +1352,27 @@
         await assertOk(state.client.from(table).insert(payload));
       }
     }
+  }
+
+  async function saveRoomCapacities() {
+    const rows = uniqueDraftRows(state.drafts.rooms, "room_name");
+    const hasNewCapacity = rows.some(row => !row.id && row.capacity_qty !== null && row.capacity_qty !== undefined);
+    const rooms = hasNewCapacity ? await selectAll(TABLES.rooms) : state.data.rooms;
+    const idsByName = new Map(rooms.map(row => [row.room_name, row.id]));
+    const value = {};
+    for (const row of rows) {
+      if (row.capacity_qty === null || row.capacity_qty === undefined) continue;
+      const id = row.id || idsByName.get(row.room_name);
+      if (!id) throw new Error(`収容能力の保存先の室を確認できません: ${row.room_name}`);
+      value[id] = row.capacity_qty;
+    }
+    const current = state.data.settings.roomCapacities || {};
+    if (Object.keys(current).length === Object.keys(value).length && Object.keys(value).every(id => current[id] === value[id])) return;
+    await assertOk(state.client.from(TABLES.settings).upsert({
+      setting_key: "roomCapacities",
+      setting_value: value
+    }));
+    state.data.settings.roomCapacities = value;
   }
 
   function temporaryMasterName(draftKey, id, usedNames) {

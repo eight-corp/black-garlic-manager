@@ -726,6 +726,7 @@ async function run() {
     await paginated.context.close();
 
     results.maturationBaseDateBoundariesRoomsZeroDayFallbackDraftPersistenceReloadAndLeapYear = await require('./maturation.cjs')(browser, scenario, unlocked);
+    results.roomCapacitiesDraftSaveReloadRenameReorderZeroBlankDeleteResponsiveAndNoInventoryLimit = await require('./room-capacities.cjs')(browser, scenario, unlocked);
     results.fullscreenGraphPortraitLandscapeRotationScopedNativeExitFallbackAndPendingCleanup = await require('./graph-rotation.cjs')(browser, scenario, unlocked);
 
     for (const role of ['operator', 'viewer']) {
