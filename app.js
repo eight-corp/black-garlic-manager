@@ -56,6 +56,7 @@
     clearLegacyLogin();
     setDefaultDates();
     bindEvents();
+    observeBottomNavigation();
     createIcons();
     connect().catch(err => showFatal(err));
   }
@@ -337,9 +338,19 @@
     return lot.id;
   }
 
+  function observeBottomNavigation() {
+    if (!window.ResizeObserver) return;
+    const navigation = document.querySelector(".tabs");
+    new ResizeObserver(() => {
+      const height = navigation.getBoundingClientRect().height;
+      if (height > 0) document.documentElement.style.setProperty("--main-nav-height", `${height}px`);
+    }).observe(navigation);
+  }
+
   function switchTab(tab) {
     if (tab === "master" && !can("admin")) return;
     state.activeTab = tab;
+    document.body.classList.toggle("summary-active", tab === "summary");
     $$(".tab").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === tab));
     $$("[data-panel]").forEach(panel => panel.classList.toggle("active-panel", panel.dataset.panel === tab));
     if (tab === "summary") renderSummary();

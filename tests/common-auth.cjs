@@ -193,6 +193,19 @@ async function run() {
       await app.locator('[data-summary-view="' + view + '"]').click();
       for (const width of [320, 390, 760, 761, 943, 1280]) {
         await app.setViewportSize({ width, height: 844 });
+        await app.waitForFunction(() => {
+          const bar = document.querySelector('.summary-bottom-tabs').getBoundingClientRect();
+          const main = document.querySelector('.tabs').getBoundingClientRect();
+          return bar.height > 0 && Math.abs(bar.bottom - main.top) < 1;
+        });
+        assert.ok(await app.locator('.summary-bottom-tabs').evaluate(element => {
+          const bounds = element.getBoundingClientRect();
+          const main = document.querySelector('.tabs').getBoundingClientRect();
+          const buttons = [...element.querySelectorAll('button')];
+          return getComputedStyle(element).position === 'fixed' && bounds.top > innerHeight * .6 && bounds.bottom <= main.top + .5 &&
+            Math.abs(main.bottom - innerHeight) < 1 && buttons.length === 4 && element.querySelectorAll('.active').length === 1 &&
+            buttons.every(button => { const r = button.getBoundingClientRect(); return r.left >= bounds.left && r.right <= bounds.right && r.top >= bounds.top && r.bottom <= bounds.bottom && button.scrollWidth <= button.clientWidth && document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)?.closest('button') === button; });
+        }), 'bottom tabs:' + view + ':' + width);
         assert.ok(await app.locator('.main-summary-controls').evaluate(element => {
           const bounds = element.getBoundingClientRect();
           const fields = [...element.querySelectorAll('input,select,button')].filter(field => field.getBoundingClientRect().width);
@@ -232,9 +245,18 @@ async function run() {
       assert.ok(await app.locator('#dailySummary').evaluate(element => element.scrollWidth <= element.clientWidth));
       if (artifacts) await app.screenshot({ path: path.join(artifacts, 'daily-empty-before-stock-' + width + '.png'), fullPage: true });
     }
+    await app.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    assert.ok(await app.locator('#dailySummary table').last().evaluate(element => element.getBoundingClientRect().bottom <= document.querySelector('.summary-bottom-tabs').getBoundingClientRect().top));
+    await app.emulateMedia({ media: 'print' });
+    assert.equal(await app.locator('.summary-bottom-tabs').isVisible(), false);
+    assert.equal(await app.locator('.tabs').isVisible(), false);
+    assert.equal(await app.locator('main').evaluate(element => getComputedStyle(element).paddingBottom), '0px');
+    await app.emulateMedia({ media: 'screen' });
+    results.bottomSummaryTabsClickableAllViewsLastTableAccessibleAndHiddenInPrint = true;
     assert.equal(backend.writes.length, writesBeforeSummary);
     results.dailyEmptyBeforeInventoryHeadersValuesTotalsAndTypeFilters = true;
     await app.locator('[data-tab="main"]').click();
+    assert.equal(await app.locator('.summary-bottom-tabs').isVisible(), false);
     await app.locator('#mainDate').fill('2026-09-12');
     await app.locator('#mainOut').fill('2');
     await app.locator('#mainIn').fill('10');

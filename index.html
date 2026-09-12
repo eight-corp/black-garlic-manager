@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>黒にんにく管理</title>
-  <link rel="stylesheet" href="./styles.css?v=20260912-summary-one-row-room-filter">
+  <link rel="stylesheet" href="./styles.css?v=20260912-summary-bottom-tabs">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -123,12 +123,6 @@
         <h2>集計</h2>
         <button id="summaryPrintBtn" type="button" class="secondary"><i data-lucide="printer"></i><span>印刷</span></button>
       </div>
-      <div class="sub-tabs">
-        <button type="button" class="sub-tab active" data-summary-view="daily">日毎</button>
-        <button type="button" class="sub-tab" data-summary-view="weekly">週毎</button>
-        <button type="button" class="sub-tab" data-summary-view="monthly">月毎</button>
-        <button type="button" class="sub-tab" data-summary-view="graph">グラフ</button>
-      </div>
       <div class="summary-controls main-summary-controls">
         <div class="summary-date-controls">
           <label for="summaryStartDate" class="field-label">集計開始日<span id="summaryStartDateWeekday" class="weekday-inline"></span></label>
@@ -151,6 +145,12 @@
         </div>
         <div class="chart-box"><canvas id="summaryChart"></canvas></div>
       </div>
+      <nav class="sub-tabs summary-bottom-tabs" aria-label="集計表示の切り替え">
+        <button type="button" class="sub-tab active" data-summary-view="daily">日毎</button>
+        <button type="button" class="sub-tab" data-summary-view="weekly">週毎</button>
+        <button type="button" class="sub-tab" data-summary-view="monthly">月毎</button>
+        <button type="button" class="sub-tab" data-summary-view="graph">グラフ</button>
+      </nav>
     </section>
 
     <section id="predictionPanel" class="panel" data-panel="prediction">
@@ -190,6 +190,6 @@
   </main>
 
   <div id="toast" class="toast hidden"></div>
-  <script src="./app.js?v=20260912-summary-one-row-room-filter"></script>
+  <script src="./app.js?v=20260912-summary-bottom-tabs"></script>
 </body>
 </html>

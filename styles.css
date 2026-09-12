@@ -15,7 +15,9 @@
   --disabled: #e5e7eb;
   --selected: #f7d56b;
   --shadow: 0 6px 18px rgba(23, 33, 27, .07);
-  --bottom-nav-space: calc(112px + env(safe-area-inset-bottom));
+  --main-nav-height: calc(71px + env(safe-area-inset-bottom));
+  --summary-nav-height: 54px;
+  --bottom-nav-space: calc(var(--main-nav-height) + 41px);
   color-scheme: light;
 }
 
@@ -102,6 +104,10 @@ main {
   width: min(100%, 1180px);
   margin: 0 auto;
   padding: 10px 8px var(--bottom-nav-space);
+}
+
+body.summary-active main {
+  padding-bottom: calc(var(--bottom-nav-space) + var(--summary-nav-height));
 }
 
 .login-screen,
@@ -423,6 +429,31 @@ button svg {
   color: #fff;
   background: var(--brand);
   border-color: var(--brand);
+}
+
+.summary-bottom-tabs {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: var(--main-nav-height);
+  z-index: 29;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  height: var(--summary-nav-height);
+  overflow: visible;
+  margin: 0;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, .96);
+  border-top: 1px solid var(--line);
+}
+
+.summary-bottom-tabs .sub-tab {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  padding: 6px 4px;
+  font-size: 13px;
 }
 
 .summary-view,
@@ -816,7 +847,7 @@ tr.clickable:hover {
   position: fixed;
   left: 12px;
   right: 12px;
-  bottom: calc(76px + env(safe-area-inset-bottom));
+  bottom: calc(var(--main-nav-height) + 5px);
   z-index: 60;
   max-width: 520px;
   margin: 0 auto;
@@ -826,6 +857,10 @@ tr.clickable:hover {
   border-radius: 8px;
   box-shadow: var(--shadow);
   font-weight: 700;
+}
+
+body.summary-active .toast {
+  bottom: calc(var(--main-nav-height) + var(--summary-nav-height) + 5px);
 }
 
 .toast.error {
@@ -1129,7 +1164,8 @@ tr.clickable:hover {
     background: #fff;
   }
 
-  main {
+  main,
+  body.summary-active main {
     width: 100%;
     padding: 0;
   }
