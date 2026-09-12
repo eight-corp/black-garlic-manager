@@ -134,6 +134,27 @@ async function chooseSummaryMetric(page, metric) {
   assert.equal(await page.locator('input[name="summaryMetric"]:checked').inputValue(), metric);
 }
 
+async function assertFourWeeklyTables(page, monday) {
+  const tables = page.locator('#weeklySummary table');
+  const periods = page.locator('#weeklySummary .summary-period');
+  assert.equal(await tables.count(), 4);
+  assert.equal(await periods.count(), 4);
+  const dates = [];
+  for (let week = 0; week < 4; week++) {
+    const expected = Array.from({ length: 7 }, (_, day) => {
+      const date = new Date(monday + 'T00:00:00Z');
+      date.setUTCDate(date.getUTCDate() - week * 7 + day);
+      return date.toISOString().slice(0, 10);
+    });
+    const actual = await tables.nth(week).locator('tbody tr').evaluateAll(rows => rows.map(row => row.dataset.summaryDate));
+    assert.deepEqual(actual, expected);
+    assert.equal(await periods.nth(week).textContent(), expected[0] + '\u301c' + expected[6]);
+    assert.equal(await tables.nth(week).locator('tbody tr').last().locator('td').first().evaluate(cell => getComputedStyle(cell).backgroundColor), 'rgb(255, 240, 240)');
+    dates.push(...actual);
+  }
+  assert.equal(new Set(dates).size, 28);
+}
+
 async function run() {
   const browser = await chromium.launch({ channel: 'chrome', headless: true });
   const results = {};
@@ -173,7 +194,7 @@ async function run() {
     assert.equal(await app.locator('#summaryStartDate').inputValue(), '2026-09-11');
     assert.equal(await app.locator('#summaryStartDateWeekday').textContent(), '\uff08\u91d1\u66dc\u65e5\uff09');
     assert.equal(await app.locator('#summaryNextDateBtn').isDisabled(), false);
-    assert.ok((await app.locator('#weeklySummary .summary-period').textContent()).startsWith('2026-09-07'));
+    assert.ok((await app.locator('#weeklySummary .summary-period').first().textContent()).startsWith('2026-09-07'));
     await app.locator('#summaryNextDateBtn').click();
     assert.equal(await app.locator('#summaryStartDate').inputValue(), '2026-09-12');
     assert.equal(await app.locator('#summaryStartDateWeekday').textContent(), '\uff08\u571f\u66dc\u65e5\uff09');
@@ -259,6 +280,7 @@ async function run() {
           assert.deepEqual((await nextDay.allTextContents()).slice(1), metric === 'inventory' ? ['8', '8'] : ['0', '0']);
         }
         if (view === 'weekly') {
+          await assertFourWeeklyTables(app, '2026-09-07');
           assert.equal(await table.locator('tbody tr').first().getAttribute('data-summary-date'), '2026-09-07');
           assert.equal(await table.locator('tbody tr').last().getAttribute('data-summary-date'), '2026-09-13');
           assert.equal(await table.locator('tbody tr').last().locator('td').first().evaluate(cell => getComputedStyle(cell).backgroundColor), 'rgb(255, 240, 240)');
@@ -278,13 +300,14 @@ async function run() {
     ]) {
       await app.locator('[data-summary-view="weekly"]').click();
       await app.locator('#summaryStartDate').fill(date);
-      const days = app.locator('#weeklySummary tbody tr');
-      assert.equal(await days.count(), 7);
+      await assertFourWeeklyTables(app, monday);
+      const days = app.locator('#weeklySummary table').first().locator('tbody tr');
       assert.equal(await days.first().getAttribute('data-summary-date'), monday);
       assert.equal(await days.last().getAttribute('data-summary-date'), sunday);
       await app.locator('[data-summary-view="monthly"]').click();
       assert.equal(await app.locator('#monthlySummary table').first().locator('tbody tr').count(), monthDays);
     }
+    results.fourWeeksNewestFirstMondayToSundayMonthYearAndLeapBoundaries = true;
     await app.locator('#summaryStartDate').fill('2026-09-12');
     await app.locator('[data-summary-view="weekly"]').click();
     for (const width of [320, 390, 943, 1280]) {
@@ -386,6 +409,7 @@ async function run() {
     rooms.backend.db.black_garlic_types.push({ id: 'type2', type_name: '\u9752\u5e78', active: true }, { id: 'hidden-type', type_name: 'Hidden type', active: false });
     const sample = rooms.backend.db.black_garlic_entries[0];
     rooms.backend.db.black_garlic_entries.push(
+      { ...sample, id: 'previous-week', entry_date: '2026-09-04', inventory_qty: 6, out_qty: 3, in_qty: 4, empty_qty: 2 },
       { ...sample, id: 'previous-inventory', entry_date: '2026-09-10', inventory_qty: 20, out_qty: 0, in_qty: 0, empty_qty: 0 },
       { ...sample, id: 'room2-entry', room_id: 'room2', out_qty: 1, in_qty: 6, empty_qty: 2, inventory_qty: 5 },
       { ...sample, id: 'type2-entry', type_id: 'type2', out_qty: 4, in_qty: 7, empty_qty: 3, inventory_qty: 3 },
@@ -411,6 +435,7 @@ async function run() {
         const table = rooms.page.locator('#' + view + 'Summary table').first();
         assert.equal(await table.locator('thead th').count(), count + 2);
         assert.equal(await table.locator('tbody tr').count(), view === 'weekly' ? 7 : 30);
+        if (view === 'weekly') assert.equal(await rooms.page.locator('#weeklySummary table').count(), 4);
         for (const [index, metric] of ['out', 'in', 'empty', 'inventory'].entries()) {
           await chooseSummaryMetric(rooms.page, metric);
           await rooms.page.locator('#summaryRefreshBtn').click();
@@ -421,6 +446,9 @@ async function run() {
           assert.equal(await row.locator('.total-col').count(), 1);
           assert.ok(!(await table.locator('thead').textContent()).includes('Hidden'));
           assert.equal(cells.slice(1, -1).reduce((total, value) => total + Number(value), 0), Number(totals[index]));
+          const previousWeek = rooms.page.locator('#' + view + 'Summary [data-summary-date="2026-09-04"] td').last();
+          const previousValue = room !== 'room2' && ['All', 'type'].includes(type) ? ['3', '4', '2', '6'][index] : '0';
+          assert.equal(await previousWeek.textContent(), previousValue, 'previous week:' + view + ':' + metric + ':' + type + ':' + room);
         }
         if (room === 'room2') {
           assert.equal(await table.locator('thead th').nth(1).textContent(), roomName2);

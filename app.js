@@ -718,16 +718,19 @@
 
   function renderWeeklySummary() {
     const base = parseYmd($("summaryStartDate").value);
-    const monday = startOfWeekMonday(base);
-    const sunday = addDays(monday, 6);
-    const matrix = roomSummaryMatrix(dateRange(monday, sunday));
-    $("weeklySummary").innerHTML = `
-      <h2 class="print-title room-summary-title">
-        <span>週毎集計（${esc(matrix.label)}）</span>
-        <span class="summary-period">${esc(dateToStr(monday))}〜${esc(dateToStr(sunday))}</span>
-      </h2>
-      ${matrix.html}
-    `;
+    const currentMonday = startOfWeekMonday(base);
+    $("weeklySummary").innerHTML = Array.from({ length: 4 }, (_, index) => {
+      const monday = addDays(currentMonday, -index * 7);
+      const sunday = addDays(monday, 6);
+      const matrix = roomSummaryMatrix(dateRange(monday, sunday));
+      return `
+        <h2 class="print-title room-summary-title">
+          <span>週毎集計（${esc(matrix.label)}）</span>
+          <span class="summary-period">${esc(dateToStr(monday))}〜${esc(dateToStr(sunday))}</span>
+        </h2>
+        ${matrix.html}
+      `;
+    }).join("");
   }
 
   function renderMonthlySummary() {

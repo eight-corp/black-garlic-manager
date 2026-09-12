@@ -516,6 +516,10 @@ button svg {
   margin-bottom: 4px;
 }
 
+#weeklySummary > .table-wrap + .room-summary-title {
+  margin-top: 16px;
+}
+
 .summary-period {
   color: var(--muted);
   font-size: 12px;
