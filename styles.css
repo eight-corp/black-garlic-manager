@@ -278,14 +278,31 @@ button svg {
 }
 
 .main-form-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.main-input-row {
+  display: grid;
+  gap: 9px;
+  align-items: end;
+  min-width: 0;
+}
+
+.main-key-row {
+  grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr)) minmax(0, .7fr);
+}
+
+.main-quantity-row {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(0, 1.6fr);
 }
 
 .main-form-grid label {
   min-width: 0;
 }
 
-.main-form-grid input[type="date"] {
+.main-form-grid input,
+.main-form-grid select,
+.main-form-grid textarea {
   min-width: 0;
 }
 
@@ -790,8 +807,20 @@ tr.clickable:hover {
   }
 
   .main-form-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
     gap: 6px;
+  }
+
+  .main-input-row {
+    gap: 4px;
+  }
+
+  .main-key-row {
+    grid-template-columns: minmax(112px, 1.6fr) repeat(2, minmax(0, 1fr)) minmax(40px, .7fr);
+  }
+
+  .main-quantity-row {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(0, 1.4fr);
   }
 
   .main-form-grid label {
@@ -802,8 +831,12 @@ tr.clickable:hover {
   .main-form-grid select,
   .main-form-grid textarea {
     min-height: 36px;
-    padding: 6px;
+    padding: 6px 4px;
     font-size: 12px;
+  }
+
+  .main-key-row select {
+    padding-inline: 2px;
   }
 
   .summary-controls button {
