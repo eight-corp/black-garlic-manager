@@ -77,7 +77,7 @@ async function scenario(browser, options = {}) {
       }
       assert.equal(name, 'business_session');
       if (!valid) return reply(route, { ok: false, error: 'Login required' });
-      return reply(route, { ok: true, workerId: 'tester', workerName, systemAdmin: false, permissions: backend.role ? { black_garlic: backend.role } : { garlic_fridge: 'viewer' } });
+      return reply(route, { ok: true, workerId: 'tester', workerName, systemAdmin: false, permissions: backend.role ? { ...options.menuPermissions, black_garlic: backend.role } : { garlic_fridge: 'viewer' } });
     }
     assert.ok(backend.db[resource], 'Unexpected database request: ' + resource);
     assert.equal(suppliedToken, token);
@@ -122,7 +122,7 @@ async function scenario(browser, options = {}) {
 const unlocked = page => page.waitForFunction(() => document.body && !document.body.classList.contains('login-locked') && document.querySelector('#currentWorker')?.textContent);
 async function openFromMenu(page, context) {
   const popup = context.waitForEvent('page');
-  await page.locator('[data-app="black_garlic"]').click();
+  await page.locator('#blackGarlicGithubLink').click();
   const app = await popup;
   await unlocked(app);
   assert.ok(app.url().startsWith(appUrl));
@@ -133,12 +133,22 @@ async function run() {
   const browser = await chromium.launch({ channel: 'chrome', headless: true });
   const results = {};
   try {
-    const current = await scenario(browser, { token: '', loggedIn: false });
+    const current = await scenario(browser, { token: '', loggedIn: false, menuPermissions: { garlic_fridge: 'viewer', garlic_drying: 'viewer', frozen_ingredients: 'viewer', rice_shipping: 'viewer' } });
     const { context, backend, page: menu } = current;
     await menu.goto(menuUrl);
+    assert.equal(await menu.locator('#blackGarlicGithubLink').isVisible(), false);
     await menu.locator('#loginPin').fill('012345');
     await menu.locator('#loginForm button').click();
     await menu.locator('#menuPanel').waitFor({ state: 'visible' });
+    assert.equal(await menu.locator('[data-app="black_garlic"]:not([data-min-role])').getAttribute('href'), 'https://script.google.com/macros/s/AKfycbwmd8R9b6DG6-XYUxAa1gguvaFb71WGXbXPatdiaD2MKSR9wJ3mAEOEYOHyL7SDDpSc/exec?openExternalBrowser=1');
+    assert.equal(await menu.locator('[data-app="rice_shipping"]').evaluate(card => card.nextElementSibling.id), 'blackGarlicGithubLink');
+    assert.equal(await menu.locator('#blackGarlicGithubLink').isVisible(), true);
+    assert.ok((await menu.locator('#blackGarlicGithubLink').getAttribute('href')).startsWith(appUrl));
+    for (const width of [320, 390, 943, 1280]) {
+      await menu.setViewportSize({ width, height: 844 });
+      assert.ok(await menu.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+      if (artifacts) await menu.screenshot({ path: path.join(artifacts, 'menu-gas-github-admin-' + width + '.png'), fullPage: true });
+    }
     let app = await openFromMenu(menu, context);
     assert.equal(backend.logins, 1);
     assert.equal(await app.locator('#currentWorker').textContent(), workerName);
@@ -219,6 +229,18 @@ async function run() {
     results.menuLoginNewTabRegistrationRolesMenuReturnLogout = true;
     await context.close();
 
+    for (const role of ['operator', 'viewer']) {
+      const test = await scenario(browser, { role });
+      await test.page.goto(menuUrl);
+      await test.page.locator('#menuPanel').waitFor({ state: 'visible' });
+      assert.equal(await test.page.locator('[data-app="black_garlic"]:not([data-min-role])').isVisible(), true);
+      assert.equal(await test.page.locator('#blackGarlicGithubLink').isVisible(), false);
+      assert.equal(await test.page.locator('#noApps').isVisible(), false);
+      assert.deepEqual(test.backend.errors, []);
+      results['gasMenuOnlyFor' + role] = true;
+      await test.context.close();
+    }
+
     for (const [name, options] of [
       ['noSessionDespiteLegacyPin', { token: '', loggedIn: false }],
       ['expiredSession', { loggedIn: false }],
@@ -230,7 +252,12 @@ async function run() {
       assert.equal(test.backend.reads.length, 0);
       assert.equal(test.backend.writes.length, 0);
       assert.deepEqual(test.backend.errors, []);
-      if (name === 'noAppPermission') assert.equal(await test.page.evaluate(() => localStorage.getItem('business.session.v1')), token);
+      if (name === 'noAppPermission') {
+        await test.page.locator('#menuPanel').waitFor({ state: 'visible' });
+        assert.equal(await test.page.evaluate(() => localStorage.getItem('business.session.v1')), token);
+        assert.equal(await test.page.locator('[data-app="black_garlic"]:not([data-min-role])').isVisible(), false);
+        assert.equal(await test.page.locator('#blackGarlicGithubLink').isVisible(), false);
+      }
       results[name] = true;
       await test.context.close();
     }
