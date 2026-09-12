@@ -281,6 +281,10 @@ button svg {
   grid-template-columns: minmax(0, 1fr);
 }
 
+.storage-form-grid {
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.2fr) repeat(2, minmax(0, .7fr)) minmax(0, 1.8fr);
+}
+
 .main-input-row {
   display: grid;
   gap: 9px;
@@ -296,13 +300,17 @@ button svg {
   grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(0, 1.6fr);
 }
 
-.main-form-grid label {
+.main-form-grid label,
+.storage-form-grid label {
   min-width: 0;
 }
 
 .main-form-grid input,
 .main-form-grid select,
-.main-form-grid textarea {
+.main-form-grid textarea,
+.storage-form-grid input,
+.storage-form-grid select,
+.storage-form-grid textarea {
   min-width: 0;
 }
 
@@ -317,7 +325,8 @@ button svg {
   -webkit-appearance: none;
 }
 
-.main-form-grid textarea {
+.main-form-grid textarea,
+.storage-form-grid textarea {
   min-height: 40px;
 }
 
@@ -822,6 +831,11 @@ tr.clickable:hover {
     gap: 6px;
   }
 
+  .storage-form-grid {
+    grid-template-columns: minmax(106px, 1.4fr) minmax(60px, 1fr) repeat(2, minmax(32px, .6fr)) minmax(36px, 1fr);
+    gap: 6px 4px;
+  }
+
   .main-input-row {
     gap: 4px;
   }
@@ -834,20 +848,36 @@ tr.clickable:hover {
     grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(0, 1.4fr);
   }
 
-  .main-form-grid label {
+  .main-form-grid label,
+  .storage-form-grid label {
     font-size: 11px;
   }
 
   .main-form-grid input,
   .main-form-grid select,
-  .main-form-grid textarea {
+  .main-form-grid textarea,
+  .storage-form-grid input,
+  .storage-form-grid select,
+  .storage-form-grid textarea {
     min-height: 36px;
     padding: 6px 4px;
     font-size: 12px;
   }
 
-  .main-key-row select {
+  .main-key-row select,
+  .storage-form-grid select {
     padding-inline: 2px;
+  }
+
+  .storage-form-grid input[type="number"] {
+    appearance: textfield;
+    -moz-appearance: textfield;
+  }
+
+  .storage-form-grid input[type="number"]::-webkit-outer-spin-button,
+  .storage-form-grid input[type="number"]::-webkit-inner-spin-button {
+    margin: 0;
+    -webkit-appearance: none;
   }
 
   .summary-controls button {

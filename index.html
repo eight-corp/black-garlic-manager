@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>黒にんにく管理</title>
-  <link rel="stylesheet" href="./styles.css?v=20260912-table-headings-grid">
+  <link rel="stylesheet" href="./styles.css?v=20260912-compact-storage-row">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -105,13 +105,13 @@
         <h2>保管庫入力</h2>
         <span id="storageStatus" class="notice"></span>
       </div>
-      <form id="storageForm" class="form-grid">
+      <form id="storageForm" class="form-grid storage-form-grid">
         <input id="storageEntryId" type="hidden">
         <label>日付<input id="storageDate" type="date" required></label>
         <label>種別<select id="storageType" required></select></label>
         <label>16段<input id="storageColumns" type="number" step="1" min="0" inputmode="numeric"></label>
         <label>端数<input id="storagePieces" type="number" step="1" min="0" inputmode="numeric"></label>
-        <label class="wide">備考<textarea id="storageNote" rows="2"></textarea></label>
+        <label>備考<textarea id="storageNote" rows="1"></textarea></label>
         <div class="action-row wide">
           <button type="submit"><i data-lucide="save"></i><span>登録</span></button>
           <button id="storageClearBtn" type="button" class="secondary"><i data-lucide="eraser"></i><span>入力クリア</span></button>
