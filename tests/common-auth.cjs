@@ -154,6 +154,34 @@ async function run() {
     assert.equal(await app.locator('#currentWorker').textContent(), workerName);
     assert.equal(await app.locator('#workerSelect,#loginBtn,#loginPin,#setupPanel').count(), 0);
     assert.ok(await app.evaluate(() => !localStorage.getItem('blackGarlicSavedPins') && !localStorage.getItem('blackGarlicWorkerId')));
+    const writesBeforeSummary = backend.writes.length;
+    await app.locator('[data-tab="summary"]').click();
+    await app.locator('#summaryStartDate').fill('2026-09-12');
+    for (const type of ['All', 'type']) {
+      await app.locator('#summaryType').selectOption(type);
+      const tables = app.locator('#dailySummary table');
+      assert.equal(await tables.count(), 7);
+      for (let day = 0; day < 7; day++) {
+        assert.deepEqual(await tables.nth(day).locator('thead th').allTextContents(), ['\u5ba4\u540d', '\u4f5c\u696d\u8005\u540d', '\u51fa\u5eab', '\u5165\u5eab', '\u7a7a\u304d', '\u5728\u5eab', '\u5099\u8003']);
+      }
+      for (const [day, empty] of [[0, '0'], [1, '1']]) {
+        const table = tables.nth(day);
+        const cells = table.locator('tbody tr').first().locator('td');
+        assert.equal(await cells.nth(4).textContent(), empty);
+        assert.equal(await cells.nth(5).textContent(), '8');
+        const total = table.locator('.total-row td');
+        assert.equal(await total.nth(4).textContent(), empty);
+        assert.equal(await total.nth(5).textContent(), '8');
+      }
+    }
+    for (const width of [320, 390, 943, 1280]) {
+      await app.setViewportSize({ width, height: 844 });
+      assert.ok(await app.locator('#dailySummary').evaluate(element => element.scrollWidth <= element.clientWidth));
+      if (artifacts) await app.screenshot({ path: path.join(artifacts, 'daily-empty-before-stock-' + width + '.png'), fullPage: true });
+    }
+    assert.equal(backend.writes.length, writesBeforeSummary);
+    results.dailyEmptyBeforeInventoryHeadersValuesTotalsAndTypeFilters = true;
+    await app.locator('[data-tab="main"]').click();
     await app.locator('#mainDate').fill('2026-09-12');
     await app.locator('#mainOut').fill('2');
     await app.locator('#mainIn').fill('10');

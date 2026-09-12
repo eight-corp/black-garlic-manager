@@ -687,8 +687,8 @@
         row.workers,
         num(row.out),
         num(row.inQty),
-        num(row.inventory),
         num(row.empty),
+        num(row.inventory),
         row.note
       ]);
       displayRows.push([
@@ -696,13 +696,13 @@
         "",
         num(roomRows.reduce((total, row) => total + row.out, 0)),
         num(roomRows.reduce((total, row) => total + row.inQty, 0)),
-        num(roomRows.reduce((total, row) => total + row.inventory, 0)),
         num(roomRows.reduce((total, row) => total + row.empty, 0)),
+        num(roomRows.reduce((total, row) => total + row.inventory, 0)),
         ""
       ]);
       return `
         <h2 class="print-title">${esc(fmtDate(ymd))} 日毎集計（${esc(typeLabel)}）</h2>
-        ${tableHtml(["室名", "作業者名", "出庫", "入庫", "在庫", "空き", "備考"], displayRows, [0, 1, 6], displayRows.length - 1)}
+        ${tableHtml(["室名", "作業者名", "出庫", "入庫", "空き", "在庫", "備考"], displayRows, [0, 1, 6], displayRows.length - 1)}
       `;
     });
 
