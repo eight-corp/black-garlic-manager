@@ -518,6 +518,7 @@
       }
       await recalculateInventoryGroup(payload.room_id, payload.type_id, payload.harvest_lot_id);
       await loadAll();
+      $("mainHistoryDate").value = payload.entry_date;
       renderAll();
       clearMainForm();
       $("mainStatus").textContent = "保存済み";
@@ -686,6 +687,7 @@
         }));
       }
       await loadAll();
+      $("storageHistoryDate").value = payload.storage_date;
       renderAll();
       loadStorageRecordByKey();
       $("storageStatus").textContent = "保存済み";
