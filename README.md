@@ -38,6 +38,8 @@ window.APP_CONFIG = {
 
 `tests/common-auth.cjs` はPlaywrightとChromeで共通メニューからのログイン、登録者、権限、期限切れ、ログアウトを検証します。通信とデータ書き込みはすべてテスト用に置き換えます。共通メニューのソースは隣接する `garlic-liff-scanner-repo`、または環境変数 `COMMON_MENU_REPO` で指定します。
 
+環境変数 `USE_PUBLISHED_SOURCE=1` を指定すると、画面のソースはGitHub Pagesの公開版を使います。この場合もSupabase通信と書き込みはテスト用に置き換えます。
+
 `tests/common-auth-rollback.sql` は適用後のSQL Editor用の権限テストです。既存レコードを使った試験変更は最後にすべてロールバックします。
 
 ## データ構造の考え方

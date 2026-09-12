@@ -44,6 +44,7 @@ async function scenario(browser, options = {}) {
     const pathname = new URL(route.request().url()).pathname;
     const file = files.get(pathname);
     if (options.missingAuth && pathname.endsWith('/business-auth.js')) return route.fulfill({ status: 200, contentType: 'application/javascript', body: '' });
+    if (process.env.USE_PUBLISHED_SOURCE) return route.continue();
     assert.ok(file, 'Unexpected source request: ' + pathname);
     const contentType = file.endsWith('.js') ? 'application/javascript' : file.endsWith('.css') ? 'text/css' : 'text/html';
     return route.fulfill({ path: file, contentType });
@@ -257,7 +258,7 @@ async function run() {
     assert.equal(await offline.page.evaluate(() => localStorage.getItem('business.session.v1')), null);
     results.logoutClearsSessionEvenWhenOffline = true;
     await offline.context.close();
-    console.log(JSON.stringify({ results, databaseWritesAreMocked: true, publishedMenuSourceIsNotModified: true }, null, 2));
+    console.log(JSON.stringify({ results, databaseWritesAreMocked: true, source: process.env.USE_PUBLISHED_SOURCE ? 'published' : 'local' }, null, 2));
   } finally { await browser.close(); }
 }
 
