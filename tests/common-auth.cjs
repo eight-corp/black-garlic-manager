@@ -120,10 +120,15 @@ async function scenario(browser, options = {}) {
     page.on('dialog', dialog => dialog.dismiss());
   });
   const page = await context.newPage();
+  await page.clock.setSystemTime(new Date('2026-09-12T03:00:00Z'));
   return { context, backend, page };
 }
 
 const unlocked = page => page.waitForFunction(() => document.body && !document.body.classList.contains('login-locked') && document.querySelector('#currentWorker')?.textContent);
+async function openActualGraph(page) {
+  await page.locator('[data-tab="summary"]').click();
+  await page.locator('[data-summary-view="graph"]').click();
+}
 async function openFromMenu(page, context) {
   const popup = context.waitForEvent('page');
   await page.locator('#blackGarlicGithubLink').click();
@@ -243,7 +248,7 @@ async function run() {
           const main = document.querySelector('.tabs').getBoundingClientRect();
           const buttons = [...element.querySelectorAll('button')];
           return getComputedStyle(element).position === 'fixed' && bounds.top > innerHeight * .6 && bounds.bottom <= main.top + .5 &&
-            Math.abs(main.bottom - innerHeight) < 1 && buttons.length === 2 && element.querySelectorAll('.active').length === 1 &&
+            Math.abs(main.bottom - innerHeight) < 1 && buttons.length === 3 && element.querySelectorAll('.active').length === 1 &&
             buttons.every(button => { const r = button.getBoundingClientRect(); return r.left >= bounds.left && r.right <= bounds.right && r.top >= bounds.top && r.bottom <= bounds.bottom && button.scrollWidth <= button.clientWidth && document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)?.closest('button') === button; });
         }), 'bottom tabs:' + view + ':' + width);
         assert.ok(await app.locator('.main-summary-controls').evaluate(element => {
@@ -390,7 +395,6 @@ async function run() {
     }
     const beforeViewer = backend.writes.length;
     await app.locator('[data-tab="prediction"]').click();
-    await app.locator('[data-graph-view="forecast"]').click();
     await app.locator('#predictionRefreshBtn').click();
     await app.locator('#predictionRefreshBtn').waitFor({ state: 'visible' });
     await app.waitForFunction(() => !document.querySelector('#predictionRefreshBtn').disabled);
@@ -495,12 +499,12 @@ async function run() {
     for (const metric of ['out', 'in', 'empty', 'inventory']) {
       await chooseSummaryMetric(rooms.page, metric);
       for (const view of ['weekly', 'monthly', 'graph', 'weekly']) {
-        await rooms.page.locator('[data-tab="' + (view === 'graph' ? 'prediction' : 'summary') + '"]').click();
-        if (view !== 'graph') await rooms.page.locator('[data-summary-view="' + view + '"]').click();
+        await rooms.page.locator('[data-tab="summary"]').click();
+        await rooms.page.locator('[data-summary-view="' + view + '"]').click();
         assert.equal(await rooms.page.locator('input[name="summaryMetric"]:checked').inputValue(), metric);
       }
     }
-    await rooms.page.locator('[data-tab="prediction"]').click();
+    await openActualGraph(rooms.page);
     await rooms.page.locator('#graphStartDate').fill('2026-09-11');
     await rooms.page.locator('#graphEndDate').fill('2026-09-11');
     assert.deepEqual(await rooms.page.locator('#graphType option').evaluateAll(options => options.map(option => option.value)), ['All', 'type', 'type2']);
@@ -525,10 +529,13 @@ async function run() {
 
     const graph = await scenario(browser);
     await graph.page.goto(appUrl); await unlocked(graph.page);
-    await graph.page.locator('[data-tab="prediction"]').click();
+    await openActualGraph(graph.page);
     assert.equal(await graph.page.locator('[data-tab="prediction"] span').textContent(), '\u30b0\u30e9\u30d5');
-    assert.deepEqual(await graph.page.locator('.graphs-bottom-tabs button').allTextContents(), ['\u5b9f\u7e3e', '\u4e88\u6e2c']);
-    assert.equal(await graph.page.locator('#summaryPanel #summaryGraph,[data-summary-view="graph"]').count(), 0);
+    assert.deepEqual(await graph.page.locator('.summary-bottom-tabs button').allTextContents(), ['\u9031\u6bce', '\u6708\u6bce', '\u30b0\u30e9\u30d5']);
+    assert.equal(await graph.page.locator('#summaryPanel #summaryGraph').count(), 1);
+    assert.equal(await graph.page.locator('#predictionPanel #summaryGraph,[data-graph-view],.graphs-bottom-tabs').count(), 0);
+    assert.equal(await graph.page.locator('#summaryMetricControls').isVisible(), false);
+    assert.equal(await graph.page.locator('.main-summary-controls').isVisible(), false);
     assert.equal(await graph.page.locator('#summaryGraph').isVisible(), true);
     assert.equal(await graph.page.locator('#forecastGraphs').isVisible(), false);
     assert.deepEqual(await graph.page.locator('.graph-series-controls select').evaluateAll(selects => selects.map(select => select.value)), ['bar', 'bar', 'line']);
@@ -556,7 +563,7 @@ async function run() {
       await graph.page.waitForFunction(() => {
         const canvas = document.querySelector('#summaryChart');
         const bounds = canvas.getBoundingClientRect();
-        return bounds.width >= innerWidth - 20 && bounds.width <= innerWidth && bounds.height > 200 && bounds.bottom <= document.querySelector('.graphs-bottom-tabs').getBoundingClientRect().top + 1 && document.documentElement.scrollWidth <= innerWidth;
+        return bounds.width >= innerWidth - 20 && bounds.width <= innerWidth && bounds.height > 200 && bounds.bottom <= document.querySelector('.summary-bottom-tabs').getBoundingClientRect().top + 1 && document.documentElement.scrollWidth <= innerWidth;
       });
       assert.ok(await graph.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       assert.ok(await graph.page.locator('.graph-series-controls').evaluate(element => [...element.querySelectorAll('select')].every(select => select.scrollWidth <= select.clientWidth)));
@@ -575,7 +582,7 @@ async function run() {
       if (width === 320) await graph.page.locator('#graphFullscreenBtn').click();
       else await graph.page.keyboard.press('Escape');
       assert.equal(await graph.page.locator('#graphFullscreenDialog').evaluate(dialog => dialog.open), false);
-      await graph.page.waitForFunction(() => document.querySelector('#predictionPanel').contains(document.querySelector('#summaryGraph')) && document.querySelector('#summaryChart').getBoundingClientRect().width >= innerWidth - 20 && document.querySelector('#summaryChart').getBoundingClientRect().width <= innerWidth);
+      await graph.page.waitForFunction(() => document.querySelector('#summaryPanel').contains(document.querySelector('#summaryGraph')) && document.querySelector('#summaryChart').getBoundingClientRect().width >= innerWidth - 20 && document.querySelector('#summaryChart').getBoundingClientRect().width <= innerWidth);
     }
     await graph.page.setViewportSize({ width: 844, height: 390 });
     await graph.page.locator('#graphFullscreenBtn').click();
@@ -604,28 +611,26 @@ async function run() {
     await assertFourWeeklyTables(graph.page, '2026-09-07');
     await graph.page.locator('[data-tab="prediction"]').click();
     assert.deepEqual(await graph.page.locator('.graph-series-controls select').evaluateAll(selects => selects.map(select => select.value)), ['bar', 'bar', 'bar']);
-    await graph.page.locator('[data-graph-view="forecast"]').click();
     assert.equal(await graph.page.locator('#summaryGraph').isVisible(), false);
     assert.equal(await graph.page.locator('#predictionChartView').isVisible(), true);
     await graph.page.locator('#predictionStartDate').fill('2026-10-10');
     await graph.page.locator('#predictionEndDate').fill('2026-10-12');
-    await graph.page.locator('[data-graph-view="actual"]').click();
-    await graph.page.locator('[data-graph-view="forecast"]').click();
+    await openActualGraph(graph.page);
+    await graph.page.locator('[data-tab="prediction"]').click();
     assert.deepEqual(await graph.page.locator('#predictionChart').evaluate(canvas => Chart.getChart(canvas).data.datasets[0].data), [0, 10, 0]);
     assert.deepEqual(await graph.page.locator('#predictionChart').evaluate(canvas => Chart.getChart(canvas).data.datasets[2].data), [4.5, 4.81, 4.81]);
     for (const width of [320, 390, 1280, 1920]) {
       await graph.page.setViewportSize({ width, height: 844 });
       await graph.page.waitForFunction(() => {
         const bounds = document.querySelector('#predictionChart').getBoundingClientRect();
-        const bar = document.querySelector('.graphs-bottom-tabs').getBoundingClientRect();
+        const bar = document.querySelector('.tabs').getBoundingClientRect();
         const chart = Chart.getChart(document.querySelector('#predictionChart'));
         const point = chart.getDatasetMeta(0).data[1];
         return bounds.width >= innerWidth - 20 && bounds.width <= innerWidth && bounds.height >= 200 && bounds.bottom <= bar.top + 1 && document.documentElement.scrollWidth <= innerWidth && Math.abs(point.y - chart.scales.y.getPixelForValue(10)) < 1;
       });
-      assert.ok(await graph.page.locator('.graphs-bottom-tabs').evaluate(element => {
-        const bar = element.getBoundingClientRect();
-        const main = document.querySelector('.tabs').getBoundingClientRect();
-        return Math.abs(bar.bottom - main.top) < 1 && [...element.querySelectorAll('button')].every(button => {
+      assert.equal(await graph.page.locator('.summary-bottom-tabs').isVisible(), false);
+      assert.ok(await graph.page.locator('.tabs').evaluate(element => {
+        return [...element.querySelectorAll('button')].every(button => {
           const r = button.getBoundingClientRect();
           return button.scrollWidth <= button.clientWidth && document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)?.closest('button') === button;
         });
@@ -634,11 +639,13 @@ async function run() {
     }
     await graph.page.locator('[data-prediction-view="table"]').click();
     assert.equal(await graph.page.locator('#predictionTableView').isVisible(), true);
-    assert.equal(await graph.page.locator('[data-graph-view="forecast"]').evaluate(button => button.classList.contains('active')), true);
+    assert.equal(await graph.page.locator('#forecastGraphs').isVisible(), true);
+    assert.equal(await graph.page.locator('#summaryGraph').isVisible(), false);
+    assert.equal(await graph.page.evaluate(() => document.body.classList.contains('graph-chart-active')), false);
     assert.equal(await graph.page.locator('#predictionTable tbody tr').count(), 3);
     assert.equal(await graph.page.locator('#predictionTable tbody tr').nth(1).locator('td').nth(1).textContent(), '10');
     await graph.page.locator('[data-prediction-view="chart"]').click();
-    await graph.page.locator('[data-graph-view="actual"]').click();
+    await openActualGraph(graph.page);
     assert.equal(await graph.page.locator('#graphStartDate').inputValue(), '2026-09-10');
     assert.equal(await graph.page.locator('#graphEndDate').inputValue(), '2026-09-12');
     assert.deepEqual(await graph.page.locator('.graph-series-controls select').evaluateAll(selects => selects.map(select => select.value)), ['bar', 'bar', 'bar']);
@@ -648,8 +655,18 @@ async function run() {
     await graph.page.keyboard.press('Escape');
     assert.equal(await graph.page.locator('#graphRoom').inputValue(), 'room');
     assert.equal(await graph.page.locator('#graphType').inputValue(), 'type');
+    await graph.page.locator('#graphFullscreenBtn').click();
+    await graph.page.locator('[data-summary-view="monthly"]').evaluate(button => button.click());
+    assert.equal(await graph.page.locator('#graphFullscreenDialog').evaluate(dialog => dialog.open), false);
+    assert.equal(await graph.page.locator('#summaryPanel #summaryGraph').count(), 1);
+    assert.equal(await graph.page.locator('#monthlySummary').isVisible(), true);
+    assert.equal(await graph.page.locator('#summaryMetricControls').isVisible(), true);
+    await openActualGraph(graph.page);
+    await graph.page.locator('#graphFullscreenBtn').click();
     await graph.page.emulateMedia({ media: 'print' });
     await graph.page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
+    assert.equal(await graph.page.locator('#graphFullscreenDialog').evaluate(dialog => dialog.open), false);
+    assert.equal(await graph.page.locator('#summaryPanel #summaryGraph').count(), 1);
     assert.equal(await graph.page.locator('.graph-series-controls').isVisible(), false);
     assert.ok(await graph.page.locator('#summaryChart').evaluate(canvas => canvas.getBoundingClientRect().height > 400));
     await graph.page.emulateMedia({ media: 'screen' });
@@ -660,7 +677,7 @@ async function run() {
     assert.equal(graph.backend.writes.length, 0);
     assert.deepEqual(graph.backend.errors, []);
     results.graphViewportFullscreenResponsiveEightIndependentLineBarCombinationsGreenStockRightAxisAndNoDatabaseWrites = true;
-    results.actualForecastGraphNavigationDefaultChartsTablePeriodsFiltersFullscreenAndNoDatabaseWrites = true;
+    results.actualGraphReturnedAfterMonthlyForecastSeparatePeriodsFiltersFullscreenPrintAndNoDatabaseWrites = true;
     await graph.context.close();
 
     const future = await scenario(browser);

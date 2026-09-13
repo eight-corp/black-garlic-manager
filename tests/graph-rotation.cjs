@@ -39,7 +39,8 @@ async function testGraphRotation(browser, scenario, unlocked) {
       }, mode);
       await page.goto('https://eight-corp.github.io/black-garlic-manager/');
       await unlocked(page);
-      await page.locator('[data-tab="prediction"]').click();
+      await page.locator('[data-tab="summary"]').click();
+      await page.locator('[data-summary-view="graph"]').click();
       await page.locator('#graphStartDate').fill('2026-09-10');
       await page.locator('#graphEndDate').fill('2026-09-12');
       await page.locator('#graphRefreshBtn').click();
@@ -86,7 +87,7 @@ async function testGraphRotation(browser, scenario, unlocked) {
         window.completeOrientationRequest?.();
         window.completeFullscreenRequest?.();
       });
-      await page.waitForFunction(() => document.querySelector('#predictionPanel').contains(document.querySelector('#summaryGraph')) && !document.body.classList.contains('graph-fullscreen-active'));
+      await page.waitForFunction(() => document.querySelector('#summaryPanel').contains(document.querySelector('#summaryGraph')) && !document.body.classList.contains('graph-fullscreen-active'));
       await page.locator('[data-tab="main"]').click();
       await page.evaluate(() => window.dispatchEvent(new Event('orientationchange')));
       const after = await page.evaluate(() => window.rotationTest);

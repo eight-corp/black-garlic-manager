@@ -30,7 +30,6 @@
     session: null,
     activeTab: "main",
     activeSummary: "weekly",
-    activeGraph: "actual",
     activePrediction: "chart",
     data: emptyData(),
     drafts: {},
@@ -144,7 +143,7 @@
     window.visualViewport?.addEventListener("resize", resizeFullscreenGraph);
     window.addEventListener("beforeprint", () => {
       closeGraphFullscreen();
-      if (state.activeTab === "prediction") {
+      if (state.activeTab === "prediction" || (state.activeTab === "summary" && state.activeSummary === "graph")) {
         state.charts.summary?.resize();
         state.charts.prediction?.resize();
       }
@@ -164,9 +163,6 @@
     $("summaryPrevDateBtn").addEventListener("click", () => moveDate("summaryStartDate", -1));
     $("summaryNextDateBtn").addEventListener("click", () => moveDate("summaryStartDate", 1));
 
-    $$("#predictionPanel .sub-tab[data-graph-view]").forEach(btn => {
-      btn.addEventListener("click", () => switchGraph(btn.dataset.graphView));
-    });
     $$("#predictionPanel .sub-tab[data-prediction-view]").forEach(btn => {
       btn.addEventListener("click", () => switchPrediction(btn.dataset.predictionView));
     });
@@ -439,7 +435,8 @@
     closeGraphFullscreen();
     state.activeSummary = view;
     $$("#summaryPanel .sub-tab").forEach(btn => btn.classList.toggle("active", btn.dataset.summaryView === view));
-    $$("#summaryPanel .summary-view").forEach(el => el.classList.toggle("active", el.id === `${view}Summary`));
+    const viewId = view === "graph" ? "summaryGraph" : `${view}Summary`;
+    $$("#summaryPanel .summary-view").forEach(el => el.classList.toggle("active", el.id === viewId));
     renderSummary();
   }
 
@@ -452,24 +449,16 @@
   }
 
   function updateGraphControls() {
-    const active = state.activeTab === "prediction";
-    document.body.classList.toggle("graphs-active", active);
-    document.body.classList.toggle("graph-chart-active", active && (state.activeGraph === "actual" || state.activePrediction === "chart"));
-  }
-
-  function switchGraph(view) {
-    closeGraphFullscreen();
-    state.activeGraph = view;
-    renderGraphs();
+    const actual = state.activeTab === "summary" && state.activeSummary === "graph";
+    const forecast = state.activeTab === "prediction";
+    document.body.classList.toggle("summary-graph-active", actual);
+    document.body.classList.toggle("graphs-active", actual || forecast);
+    document.body.classList.toggle("graph-chart-active", actual || (forecast && state.activePrediction === "chart"));
   }
 
   function renderGraphs() {
     updateGraphControls();
-    $$("#predictionPanel [data-graph-view]").forEach(btn => btn.classList.toggle("active", btn.dataset.graphView === state.activeGraph));
-    $("summaryGraph").classList.toggle("active", state.activeGraph === "actual");
-    $("forecastGraphs").classList.toggle("active", state.activeGraph === "forecast");
-    if (state.activeGraph === "actual") renderSummaryGraph();
-    else renderPrediction();
+    renderPrediction();
   }
 
   function switchPrediction(view) {
@@ -770,9 +759,11 @@
   }
 
   function renderSummary() {
+    updateGraphControls();
     updateSummaryControls();
     if (state.activeSummary === "weekly") renderWeeklySummary();
     if (state.activeSummary === "monthly") renderMonthlySummary();
+    if (state.activeSummary === "graph") renderSummaryGraph();
     fitResponsiveTables($("summaryPanel"));
   }
 
@@ -924,7 +915,7 @@
     }
     if (document.fullscreenElement === $("summaryGraph")) document.exitFullscreen().catch(() => {});
     if (dialog.open) dialog.close();
-    $("predictionPanel").insertBefore($("summaryGraph"), $("forecastGraphs"));
+    $("summaryPanel").insertBefore($("summaryGraph"), document.querySelector(".summary-bottom-tabs"));
     document.body.classList.remove("graph-fullscreen-active");
     updateGraphFullscreenButton(false);
     requestAnimationFrame(() => state.charts.summary?.resize());

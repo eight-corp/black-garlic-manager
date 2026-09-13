@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>黒にんにく管理</title>
-  <link rel="stylesheet" href="./styles.css?v=20260912-room-capacities">
+  <link rel="stylesheet" href="./styles.css?v=20260914-actual-summary-graph">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -145,18 +145,7 @@
       </fieldset>
       <div id="weeklySummary" class="summary-view active"></div>
       <div id="monthlySummary" class="summary-view"></div>
-      <nav class="sub-tabs summary-bottom-tabs" aria-label="集計表示の切り替え">
-        <button type="button" class="sub-tab active" data-summary-view="weekly">週毎</button>
-        <button type="button" class="sub-tab" data-summary-view="monthly">月毎</button>
-      </nav>
-    </section>
-
-    <section id="predictionPanel" class="panel" data-panel="prediction">
-      <div class="section-title">
-        <h2>グラフ</h2>
-        <button id="graphPrintBtn" type="button" class="secondary"><i data-lucide="printer"></i><span>印刷</span></button>
-      </div>
-      <div id="summaryGraph" class="graph-view active">
+      <div id="summaryGraph" class="summary-view graph-view">
         <div class="summary-controls actual-graph-filters">
           <label>種別<select id="graphType"></select></label>
           <label>室名<select id="graphRoom"></select></label>
@@ -174,7 +163,19 @@
         </div>
         <div class="chart-box"><canvas id="summaryChart" role="img" aria-label="入庫・出庫・在庫の推移"></canvas></div>
       </div>
-      <div id="forecastGraphs" class="graph-view">
+      <nav class="sub-tabs summary-bottom-tabs" aria-label="集計表示の切り替え">
+        <button type="button" class="sub-tab active" data-summary-view="weekly">週毎</button>
+        <button type="button" class="sub-tab" data-summary-view="monthly">月毎</button>
+        <button type="button" class="sub-tab" data-summary-view="graph">グラフ</button>
+      </nav>
+    </section>
+
+    <section id="predictionPanel" class="panel" data-panel="prediction">
+      <div class="section-title">
+        <h2>グラフ</h2>
+        <button id="graphPrintBtn" type="button" class="secondary"><i data-lucide="printer"></i><span>印刷</span></button>
+      </div>
+      <div id="forecastGraphs" class="graph-view active">
         <div class="summary-controls prediction-controls">
           <label>開始日<input id="predictionStartDate" type="date"></label>
           <label>終了日<input id="predictionEndDate" type="date"></label>
@@ -195,10 +196,6 @@
           <div class="chart-box"><canvas id="predictionChart" role="img" aria-label="出庫予測と保管数の推移"></canvas></div>
         </div>
       </div>
-      <nav class="sub-tabs graphs-bottom-tabs" aria-label="グラフ表示の切り替え">
-        <button type="button" class="sub-tab active" data-graph-view="actual">実績</button>
-        <button type="button" class="sub-tab" data-graph-view="forecast">予測</button>
-      </nav>
     </section>
 
     <section id="masterPanel" class="panel" data-panel="master">
@@ -213,6 +210,6 @@
 
   <dialog id="graphFullscreenDialog" class="graph-fullscreen-dialog" aria-label="入出庫・在庫グラフの全画面表示"></dialog>
   <div id="toast" class="toast hidden"></div>
-  <script src="./app.js?v=20260912-room-capacities"></script>
+  <script src="./app.js?v=20260914-actual-summary-graph"></script>
 </body>
 </html>
