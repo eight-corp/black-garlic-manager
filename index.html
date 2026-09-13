@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>黒にんにく管理</title>
-  <link rel="stylesheet" href="./styles.css?v=20260914-two-week-compact-graphs">
+  <link rel="stylesheet" href="./styles.css?v=20260914-room-storage-summary-tabs">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -130,7 +130,7 @@
           <button id="summaryPrevDateBtn" type="button" class="icon-btn secondary" title="前日" aria-label="前日"><i data-lucide="chevron-left"></i></button>
           <button id="summaryNextDateBtn" type="button" class="icon-btn secondary" title="翌日" aria-label="翌日"><i data-lucide="chevron-right"></i></button>
         </div>
-        <label>種別<select id="summaryType"></select></label>
+        <label id="summaryTypeFilter">種別<select id="summaryType"></select></label>
         <label id="summaryRoomFilter">室名<select id="summaryRoom"></select></label>
         <button id="summaryRefreshBtn" type="button" class="icon-btn" title="更新" aria-label="更新"><i data-lucide="refresh-cw"></i></button>
       </div>
@@ -144,7 +144,9 @@
         </div>
       </fieldset>
       <div id="weeklySummary" class="summary-view active"></div>
+      <div id="weeklyStorageSummary" class="summary-view"></div>
       <div id="monthlySummary" class="summary-view"></div>
+      <div id="monthlyStorageSummary" class="summary-view"></div>
       <div id="summaryGraph" class="summary-view graph-view">
         <div class="actual-graph-toolbar">
           <div class="summary-controls actual-graph-filters">
@@ -166,8 +168,10 @@
         <div class="chart-box"><canvas id="summaryChart" role="img" aria-label="入庫・出庫・在庫の推移"></canvas></div>
       </div>
       <nav class="sub-tabs summary-bottom-tabs" aria-label="集計表示の切り替え">
-        <button type="button" class="sub-tab active" data-summary-view="weekly">週毎</button>
-        <button type="button" class="sub-tab" data-summary-view="monthly">月毎</button>
+        <button type="button" class="sub-tab active" data-summary-view="weekly">週毎<span>(室)</span></button>
+        <button type="button" class="sub-tab" data-summary-view="weeklyStorage">週毎<span>(保管庫)</span></button>
+        <button type="button" class="sub-tab" data-summary-view="monthly">月毎<span>(室)</span></button>
+        <button type="button" class="sub-tab" data-summary-view="monthlyStorage">月毎<span>(保管庫)</span></button>
         <button type="button" class="sub-tab" data-summary-view="graph">グラフ</button>
       </nav>
     </section>
@@ -212,6 +216,6 @@
 
   <dialog id="graphFullscreenDialog" class="graph-fullscreen-dialog" aria-label="入出庫・在庫グラフの全画面表示"></dialog>
   <div id="toast" class="toast hidden"></div>
-  <script src="./app.js?v=20260914-two-week-compact-graphs"></script>
+  <script src="./app.js?v=20260914-room-storage-summary-tabs"></script>
 </body>
 </html>

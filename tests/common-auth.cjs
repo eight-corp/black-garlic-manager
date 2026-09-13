@@ -143,9 +143,9 @@ async function chooseSummaryMetric(page, metric) {
   assert.equal(await page.locator('input[name="summaryMetric"]:checked').inputValue(), metric);
 }
 
-async function assertTwoWeeklyTables(page, monday) {
-  const tables = page.locator('#weeklySummary table');
-  const periods = page.locator('#weeklySummary .summary-period');
+async function assertTwoWeeklyTables(page, monday, view = 'weekly') {
+  const tables = page.locator('#' + view + 'Summary table');
+  const periods = page.locator('#' + view + 'Summary .summary-period:not(.summary-units)');
   assert.equal(await tables.count(), 2);
   assert.equal(await periods.count(), 2);
   const dates = [];
@@ -248,7 +248,7 @@ async function run() {
           const main = document.querySelector('.tabs').getBoundingClientRect();
           const buttons = [...element.querySelectorAll('button')];
           return getComputedStyle(element).position === 'fixed' && bounds.top > innerHeight * .6 && bounds.bottom <= main.top + .5 &&
-            Math.abs(main.bottom - innerHeight) < 1 && buttons.length === 3 && element.querySelectorAll('.active').length === 1 &&
+            Math.abs(main.bottom - innerHeight) < 1 && buttons.length === 5 && element.querySelectorAll('.active').length === 1 &&
             buttons.every(button => { const r = button.getBoundingClientRect(); return r.left >= bounds.left && r.right <= bounds.right && r.top >= bounds.top && r.bottom <= bounds.bottom && button.scrollWidth <= button.clientWidth && document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)?.closest('button') === button; });
         }), 'bottom tabs:' + view + ':' + width);
         assert.ok(await app.locator('.main-summary-controls').evaluate(element => {
@@ -301,10 +301,13 @@ async function run() {
           assert.equal(await table.locator('tbody tr').last().locator('td').first().evaluate(cell => getComputedStyle(cell).backgroundColor), 'rgb(255, 240, 240)');
           assert.ok((await table.locator('tbody tr').last().locator('td').allTextContents()).every(value => value.trim() === ''));
         } else {
-          assert.equal(await app.locator('#monthlySummary table').count(), 2);
-          const storage = app.locator('#monthlySummary table').last().locator('tbody tr').nth(10);
+          assert.equal(await app.locator('#monthlySummary table').count(), 1);
+          await app.locator('[data-summary-view="monthlyStorage"]').click();
+          assert.equal(await app.locator('#monthlyStorageSummary table').count(), 1);
+          const storage = app.locator('#monthlyStorageSummary [data-summary-date="2026-09-11"]');
           assert.deepEqual(await storage.locator('.cell-upper').allTextContents(), ['4', '4']);
           assert.deepEqual(await storage.locator('.cell-lower').allTextContents(), ['8', '8']);
+          await app.locator('[data-summary-view="monthly"]').click();
         }
       }
     }
@@ -531,7 +534,7 @@ async function run() {
     await graph.page.goto(appUrl); await unlocked(graph.page);
     await openActualGraph(graph.page);
     assert.equal(await graph.page.locator('[data-tab="prediction"] span').textContent(), '\u30b0\u30e9\u30d5');
-    assert.deepEqual(await graph.page.locator('.summary-bottom-tabs button').allTextContents(), ['\u9031\u6bce', '\u6708\u6bce', '\u30b0\u30e9\u30d5']);
+    assert.deepEqual(await graph.page.locator('.summary-bottom-tabs button').allTextContents(), ['\u9031\u6bce(\u5ba4)', '\u9031\u6bce(\u4fdd\u7ba1\u5eab)', '\u6708\u6bce(\u5ba4)', '\u6708\u6bce(\u4fdd\u7ba1\u5eab)', '\u30b0\u30e9\u30d5']);
     assert.equal(await graph.page.locator('#summaryPanel #summaryGraph').count(), 1);
     assert.equal(await graph.page.locator('#predictionPanel #summaryGraph,[data-graph-view],.graphs-bottom-tabs').count(), 0);
     assert.equal(await graph.page.locator('#summaryMetricControls').isVisible(), false);
@@ -705,10 +708,11 @@ async function run() {
       assert.ok((await blank.allTextContents()).every(cell => cell.trim() === ''));
       await future.page.locator('[data-summary-view="monthly"]').click();
       assert.ok((await future.page.locator('#monthlySummary [data-summary-date="2026-09-13"] td').allTextContents()).every(cell => cell.trim() === ''));
-      assert.ok((await future.page.locator('#monthlySummary table').last().locator('tbody tr').nth(12).locator('td').allTextContents()).every(cell => cell.trim() === ''));
       const currentDay = await future.page.locator('#monthlySummary [data-summary-date="2026-09-12"] td').allTextContents();
       assert.ok(currentDay[0].trim());
       assert.deepEqual(currentDay.slice(1), metric === 'inventory' ? ['8', '8'] : ['0', '0']);
+      await future.page.locator('[data-summary-view="monthlyStorage"]').click();
+      assert.ok((await future.page.locator('#monthlyStorageSummary [data-summary-date="2026-09-13"] td').allTextContents()).every(cell => cell.trim() === ''));
       await future.page.locator('[data-summary-view="weekly"]').click();
     }
     for (const width of [320, 390, 1280]) {
@@ -726,8 +730,9 @@ async function run() {
       await chooseSummaryMetric(future.page, metric);
       assert.deepEqual((await future.page.locator('#monthlySummary [data-summary-date="2026-09-13"] td').allTextContents()).slice(1), [value, value]);
     }
-    assert.deepEqual(await future.page.locator('#monthlySummary table').last().locator('tbody tr').nth(12).locator('.cell-upper').allTextContents(), ['9', '9']);
-    assert.deepEqual(await future.page.locator('#monthlySummary table').last().locator('tbody tr').nth(12).locator('.cell-lower').allTextContents(), ['5', '5']);
+    await future.page.locator('[data-summary-view="monthlyStorage"]').click();
+    assert.deepEqual(await future.page.locator('#monthlyStorageSummary [data-summary-date="2026-09-13"] .cell-upper').allTextContents(), ['9', '9']);
+    assert.deepEqual(await future.page.locator('#monthlyStorageSummary [data-summary-date="2026-09-13"] .cell-lower').allTextContents(), ['5', '5']);
     await future.page.locator('[data-summary-view="weekly"]').click();
     await future.page.clock.setFixedTime(new Date('2026-09-07T03:00:00Z'));
     await future.page.locator('#summaryRefreshBtn').click();
@@ -768,6 +773,7 @@ async function run() {
     await paginated.context.close();
 
     results.maturationBaseDateBoundariesRoomsZeroDayFallbackDraftPersistenceReloadAndLeapYear = await require('./maturation.cjs')(browser, scenario, unlocked);
+    results.separateRoomAndStorageSummariesTwoWeeksTotalsHiddenTypesFutureBoundariesResponsivePrintAndNoWrites = await require('./storage-summaries.cjs')(browser, scenario, unlocked, assertTwoWeeklyTables);
     results.compactActualGraphSingleRowDatePickerFullDateLeapAndYearLabelsResponsiveAndNoWrites = await require('./compact-graph.cjs')(browser, scenario, unlocked);
     results.roomCapacitiesDraftSaveReloadRenameReorderZeroBlankDeleteResponsiveAndNoInventoryLimit = await require('./room-capacities.cjs')(browser, scenario, unlocked);
     results.fullscreenGraphPortraitLandscapeRotationScopedNativeExitFallbackAndPendingCleanup = await require('./graph-rotation.cjs')(browser, scenario, unlocked);

@@ -464,6 +464,8 @@
   function updateGraphControls() {
     const actual = state.activeTab === "summary" && state.activeSummary === "graph";
     const forecast = state.activeTab === "prediction";
+    const storage = state.activeTab === "summary" && ["weeklyStorage", "monthlyStorage"].includes(state.activeSummary);
+    document.body.classList.toggle("summary-storage-active", storage);
     document.body.classList.toggle("summary-graph-active", actual);
     document.body.classList.toggle("graphs-active", actual || forecast);
     document.body.classList.toggle("graph-chart-active", actual || (forecast && state.activePrediction === "chart"));
@@ -775,7 +777,9 @@
     updateGraphControls();
     updateSummaryControls();
     if (state.activeSummary === "weekly") renderWeeklySummary();
+    if (state.activeSummary === "weeklyStorage") renderWeeklyStorageSummary();
     if (state.activeSummary === "monthly") renderMonthlySummary();
+    if (state.activeSummary === "monthlyStorage") renderMonthlyStorageSummary();
     if (state.activeSummary === "graph") renderSummaryGraph();
     fitResponsiveTables($("summaryPanel"));
   }
@@ -809,12 +813,17 @@
     };
   }
 
-  function renderWeeklySummary() {
+  function summaryWeeks() {
     const base = parseYmd($("summaryStartDate").value);
     const currentMonday = startOfWeekMonday(base);
-    $("weeklySummary").innerHTML = Array.from({ length: 2 }, (_, index) => {
+    return Array.from({ length: 2 }, (_, index) => {
       const monday = addDays(currentMonday, -index * 7);
-      const sunday = addDays(monday, 6);
+      return { monday, sunday: addDays(monday, 6) };
+    });
+  }
+
+  function renderWeeklySummary() {
+    $("weeklySummary").innerHTML = summaryWeeks().map(({ monday, sunday }) => {
       const matrix = roomSummaryMatrix(dateRange(monday, sunday), { blankFuture: true });
       return `
         <h2 class="print-title room-summary-title">
@@ -830,9 +839,15 @@
     const base = parseYmd($("summaryStartDate").value);
     const start = new Date(base.getFullYear(), base.getMonth(), 1);
     const end = new Date(base.getFullYear(), base.getMonth() + 1, 0);
-    const days = dateRange(start, end);
+    const matrix = roomSummaryMatrix(dateRange(start, end), { blankFuture: true });
+    $("monthlySummary").innerHTML = `
+      <h2 class="print-title">${esc(reiwaMonthLabel(start))} 月毎(室)（${esc(matrix.label)}）</h2>
+      ${matrix.html}
+    `;
+  }
+
+  function storageSummaryMatrix(days) {
     const storageTypes = activeRows(state.data.storageTypes);
-    const matrix = roomSummaryMatrix(days, { blankFuture: true });
     const today = todayStr();
 
     const storageRows = days.map(day => {
@@ -848,18 +863,37 @@
         piecesTotal += pieces;
         return twoLineCell(numOrBlank(columns, 0), numOrBlank(pieces, 0));
       });
-      return `<tr>
+      return `<tr data-summary-date="${ymd}">
         <td class="${day.getDay() === 0 ? "sun-date" : ""}">${future ? "&nbsp;" : esc(fmtDate(ymd))}</td>
         ${cells.join("")}
         ${twoLineCell(numOrBlank(columnsTotal, 0), numOrBlank(piecesTotal, 0), "", "", "total-col")}
       </tr>`;
     }).join("");
 
-    $("monthlySummary").innerHTML = `
-      <h2 class="print-title">${esc(reiwaMonthLabel(start))} 月毎室（${esc(matrix.label)}）</h2>
-      ${matrix.html}
-      <h2 class="print-title">保管庫集計（上段：16段 下段：端数）</h2>
-      ${matrixTableHtml(["日付", ...storageTypes.map(type => type.type_name), "合計"], storageRows)}
+    return matrixTableHtml(["日付", ...storageTypes.map(type => type.type_name), "合計"], storageRows);
+  }
+
+  function renderWeeklyStorageSummary() {
+    $("weeklyStorageSummary").innerHTML = summaryWeeks().map(({ monday, sunday }) => `
+      <h2 class="print-title room-summary-title">
+        <span>週毎(保管庫)</span>
+        <span class="summary-units summary-period">上段：16段 / 下段：端数</span>
+        <span class="summary-period">${esc(dateToStr(monday))}〜${esc(dateToStr(sunday))}</span>
+      </h2>
+      ${storageSummaryMatrix(dateRange(monday, sunday))}
+    `).join("");
+  }
+
+  function renderMonthlyStorageSummary() {
+    const base = parseYmd($("summaryStartDate").value);
+    const start = new Date(base.getFullYear(), base.getMonth(), 1);
+    const end = new Date(base.getFullYear(), base.getMonth() + 1, 0);
+    $("monthlyStorageSummary").innerHTML = `
+      <h2 class="print-title room-summary-title">
+        <span>${esc(reiwaMonthLabel(start))} 月毎(保管庫)</span>
+        <span class="summary-units summary-period">上段：16段 / 下段：端数</span>
+      </h2>
+      ${storageSummaryMatrix(dateRange(start, end))}
     `;
   }
 
