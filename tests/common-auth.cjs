@@ -143,23 +143,23 @@ async function chooseSummaryMetric(page, metric) {
   assert.equal(await page.locator('input[name="summaryMetric"]:checked').inputValue(), metric);
 }
 
-async function assertFourWeeklyTables(page, monday) {
+async function assertTwoWeeklyTables(page, monday) {
   const tables = page.locator('#weeklySummary table');
   const periods = page.locator('#weeklySummary .summary-period');
-  assert.equal(await tables.count(), 4);
-  assert.equal(await periods.count(), 4);
+  assert.equal(await tables.count(), 2);
+  assert.equal(await periods.count(), 2);
   const dates = [];
   const today = await page.locator('#summaryStartDate').getAttribute('max');
-  for (let week = 0; week < 4; week++) {
+  for (let week = 0; week < 2; week++) {
     const expected = Array.from({ length: 7 }, (_, day) => {
       const date = new Date(monday + 'T00:00:00Z');
-      date.setUTCDate(date.getUTCDate() - week * 7 + 6 - day);
+      date.setUTCDate(date.getUTCDate() - week * 7 + day);
       return date.toISOString().slice(0, 10);
     });
     const actual = await tables.nth(week).locator('tbody tr').evaluateAll(rows => rows.map(row => row.dataset.summaryDate));
     assert.deepEqual(actual, expected);
-    assert.equal(await periods.nth(week).textContent(), expected[6] + '\u301c' + expected[0]);
-    assert.equal(await tables.nth(week).locator('tbody tr').first().locator('td').first().evaluate(cell => getComputedStyle(cell).backgroundColor), 'rgb(255, 240, 240)');
+    assert.equal(await periods.nth(week).textContent(), expected[0] + '\u301c' + expected[6]);
+    assert.equal(await tables.nth(week).locator('tbody tr').last().locator('td').first().evaluate(cell => getComputedStyle(cell).backgroundColor), 'rgb(255, 240, 240)');
     for (const [index, date] of expected.entries()) {
       const cells = await tables.nth(week).locator('tbody tr').nth(index).locator('td').allTextContents();
       if (date > today) assert.ok(cells.every(value => value.trim() === ''), 'future row:' + date);
@@ -167,7 +167,7 @@ async function assertFourWeeklyTables(page, monday) {
     }
     dates.push(...actual);
   }
-  assert.equal(new Set(dates).size, 28);
+  assert.equal(new Set(dates).size, 14);
 }
 
 async function run() {
@@ -295,11 +295,11 @@ async function run() {
           assert.deepEqual((await nextDay.allTextContents()).slice(1), metric === 'inventory' ? ['8', '8'] : ['0', '0']);
         }
         if (view === 'weekly') {
-          await assertFourWeeklyTables(app, '2026-09-07');
-          assert.equal(await table.locator('tbody tr').first().getAttribute('data-summary-date'), '2026-09-13');
-          assert.equal(await table.locator('tbody tr').last().getAttribute('data-summary-date'), '2026-09-07');
-          assert.equal(await table.locator('tbody tr').first().locator('td').first().evaluate(cell => getComputedStyle(cell).backgroundColor), 'rgb(255, 240, 240)');
-          assert.ok((await table.locator('tbody tr').first().locator('td').allTextContents()).every(value => value.trim() === ''));
+          await assertTwoWeeklyTables(app, '2026-09-07');
+          assert.equal(await table.locator('tbody tr').first().getAttribute('data-summary-date'), '2026-09-07');
+          assert.equal(await table.locator('tbody tr').last().getAttribute('data-summary-date'), '2026-09-13');
+          assert.equal(await table.locator('tbody tr').last().locator('td').first().evaluate(cell => getComputedStyle(cell).backgroundColor), 'rgb(255, 240, 240)');
+          assert.ok((await table.locator('tbody tr').last().locator('td').allTextContents()).every(value => value.trim() === ''));
         } else {
           assert.equal(await app.locator('#monthlySummary table').count(), 2);
           const storage = app.locator('#monthlySummary table').last().locator('tbody tr').nth(10);
@@ -316,14 +316,14 @@ async function run() {
     ]) {
       await app.locator('[data-summary-view="weekly"]').click();
       await app.locator('#summaryStartDate').fill(date);
-      await assertFourWeeklyTables(app, monday);
+      await assertTwoWeeklyTables(app, monday);
       const days = app.locator('#weeklySummary table').first().locator('tbody tr');
-      assert.equal(await days.first().getAttribute('data-summary-date'), sunday);
-      assert.equal(await days.last().getAttribute('data-summary-date'), monday);
+      assert.equal(await days.first().getAttribute('data-summary-date'), monday);
+      assert.equal(await days.last().getAttribute('data-summary-date'), sunday);
       await app.locator('[data-summary-view="monthly"]').click();
       assert.equal(await app.locator('#monthlySummary table').first().locator('tbody tr').count(), monthDays);
     }
-    results.fourWeeksNewestFirstSundayToMondayMonthYearAndLeapBoundaries = true;
+    results.twoWeeksCurrentThenPreviousMondayToSundayMonthYearAndLeapBoundaries = true;
     await app.locator('#summaryStartDate').fill('2026-09-12');
     await app.locator('[data-summary-view="weekly"]').click();
     for (const width of [320, 390, 943, 1280]) {
@@ -451,7 +451,7 @@ async function run() {
         const table = rooms.page.locator('#' + view + 'Summary table').first();
         assert.equal(await table.locator('thead th').count(), count + 2);
         assert.equal(await table.locator('tbody tr').count(), view === 'weekly' ? 7 : 30);
-        if (view === 'weekly') assert.equal(await rooms.page.locator('#weeklySummary table').count(), 4);
+        if (view === 'weekly') assert.equal(await rooms.page.locator('#weeklySummary table').count(), 2);
         for (const [index, metric] of ['out', 'in', 'empty', 'inventory'].entries()) {
           await chooseSummaryMetric(rooms.page, metric);
           await rooms.page.locator('#summaryRefreshBtn').click();
@@ -608,7 +608,7 @@ async function run() {
     await graph.page.locator('[data-tab="summary"]').click();
     await graph.page.locator('[data-summary-view="weekly"]').click();
     assert.equal(await graph.page.evaluate(() => document.body.classList.contains('graphs-active')), false);
-    await assertFourWeeklyTables(graph.page, '2026-09-07');
+    await assertTwoWeeklyTables(graph.page, '2026-09-07');
     await graph.page.locator('[data-tab="prediction"]').click();
     assert.deepEqual(await graph.page.locator('.graph-series-controls select').evaluateAll(selects => selects.map(select => select.value)), ['bar', 'bar', 'bar']);
     assert.equal(await graph.page.locator('#summaryGraph').isVisible(), false);
@@ -621,13 +621,23 @@ async function run() {
     assert.deepEqual(await graph.page.locator('#predictionChart').evaluate(canvas => Chart.getChart(canvas).data.datasets[2].data), [4.5, 4.81, 4.81]);
     for (const width of [320, 390, 1280, 1920]) {
       await graph.page.setViewportSize({ width, height: 844 });
-      await graph.page.waitForFunction(() => {
-        const bounds = document.querySelector('#predictionChart').getBoundingClientRect();
-        const bar = document.querySelector('.tabs').getBoundingClientRect();
-        const chart = Chart.getChart(document.querySelector('#predictionChart'));
-        const point = chart.getDatasetMeta(0).data[1];
-        return bounds.width >= innerWidth - 20 && bounds.width <= innerWidth && bounds.height >= 200 && bounds.bottom <= bar.top + 1 && document.documentElement.scrollWidth <= innerWidth && Math.abs(point.y - chart.scales.y.getPixelForValue(10)) < 1;
-      });
+      try {
+        await graph.page.waitForFunction(() => {
+          const bounds = document.querySelector('#predictionChart').getBoundingClientRect();
+          const bar = document.querySelector('.tabs').getBoundingClientRect();
+          const chart = Chart.getChart(document.querySelector('#predictionChart'));
+          const point = chart.getDatasetMeta(0).data[1];
+          return bounds.width >= innerWidth - 20 && bounds.width <= innerWidth && bounds.height >= 200 && bounds.bottom <= bar.top + 1 && document.documentElement.scrollWidth <= innerWidth && Math.abs(point.y - chart.scales.y.getPixelForValue(10)) < 1;
+        });
+      } catch (error) {
+        console.error(await graph.page.evaluate(() => {
+          const canvas = document.querySelector('#predictionChart');
+          const chart = Chart.getChart(canvas);
+          return { forecastViewportFailure: true, width: innerWidth, overflow: document.documentElement.scrollWidth, scrollY, canvas: canvas.getBoundingClientRect().toJSON(), footer: document.querySelector('.tabs').getBoundingClientRect().toJSON(), point: chart.getDatasetMeta(0).data[1].y, expectedPoint: chart.scales.y.getPixelForValue(10), classes: document.body.className };
+        }));
+        if (artifacts) await graph.page.screenshot({ path: path.join(artifacts, 'forecast-viewport-failure-' + width + '.png'), fullPage: true });
+        throw error;
+      }
       assert.equal(await graph.page.locator('.summary-bottom-tabs').isVisible(), false);
       assert.ok(await graph.page.locator('.tabs').evaluate(element => {
         return [...element.querySelectorAll('button')].every(button => {
@@ -683,38 +693,53 @@ async function run() {
     const future = await scenario(browser);
     const futureTemplate = future.backend.db.black_garlic_entries[0];
     future.backend.db.black_garlic_entries.push({ ...futureTemplate, id: 'future-main', entry_date: '2026-09-13', recorded_at: '2026-09-13T03:00:00Z', out_qty: 55, in_qty: 66, empty_qty: 77, inventory_qty: 99 });
+    future.backend.db.black_garlic_storage_entries.push({ ...future.backend.db.black_garlic_storage_entries[0], id: 'future-storage', storage_date: '2026-09-13', columns16: 9, pieces: 5 });
     await future.page.clock.setFixedTime(new Date('2026-09-12T03:00:00Z'));
     await future.page.goto(appUrl); await unlocked(future.page);
     await future.page.locator('[data-tab="summary"]').click();
     await future.page.locator('#summaryStartDate').fill('2026-09-12');
-    for (const [metric, value] of [['out', '55'], ['in', '66'], ['empty', '77'], ['inventory', '99']]) {
+    for (const metric of ['out', 'in', 'empty', 'inventory']) {
       await chooseSummaryMetric(future.page, metric);
-      await assertFourWeeklyTables(future.page, '2026-09-07');
+      await assertTwoWeeklyTables(future.page, '2026-09-07');
       const blank = future.page.locator('#weeklySummary [data-summary-date="2026-09-13"] td');
       assert.ok((await blank.allTextContents()).every(cell => cell.trim() === ''));
       await future.page.locator('[data-summary-view="monthly"]').click();
-      assert.deepEqual((await future.page.locator('#monthlySummary [data-summary-date="2026-09-13"] td').allTextContents()).slice(1), [value, value]);
+      assert.ok((await future.page.locator('#monthlySummary [data-summary-date="2026-09-13"] td').allTextContents()).every(cell => cell.trim() === ''));
+      assert.ok((await future.page.locator('#monthlySummary table').last().locator('tbody tr').nth(12).locator('td').allTextContents()).every(cell => cell.trim() === ''));
+      const currentDay = await future.page.locator('#monthlySummary [data-summary-date="2026-09-12"] td').allTextContents();
+      assert.ok(currentDay[0].trim());
+      assert.deepEqual(currentDay.slice(1), metric === 'inventory' ? ['8', '8'] : ['0', '0']);
       await future.page.locator('[data-summary-view="weekly"]').click();
     }
     for (const width of [320, 390, 1280]) {
       await future.page.setViewportSize({ width, height: 844 });
       assert.ok(await future.page.locator('#weeklySummary').evaluate(element => element.scrollWidth <= element.clientWidth));
-      if (artifacts) await future.page.screenshot({ path: path.join(artifacts, 'weekly-descending-blank-future-' + width + '.png'), fullPage: true });
+      if (artifacts) await future.page.screenshot({ path: path.join(artifacts, 'weekly-two-ascending-blank-future-' + width + '.png'), fullPage: true });
     }
     await future.page.clock.setFixedTime(new Date('2026-09-13T03:00:00Z'));
     await future.page.locator('#summaryRefreshBtn').click();
-    const visibleSunday = await future.page.locator('#weeklySummary table').first().locator('tbody tr').first().locator('td').allTextContents();
+    const visibleSunday = await future.page.locator('#weeklySummary table').first().locator('tbody tr').last().locator('td').allTextContents();
     assert.ok(visibleSunday[0].trim());
     assert.deepEqual(visibleSunday.slice(1), ['99', '99']);
+    await future.page.locator('[data-summary-view="monthly"]').click();
+    for (const [metric, value] of [['out', '55'], ['in', '66'], ['empty', '77'], ['inventory', '99']]) {
+      await chooseSummaryMetric(future.page, metric);
+      assert.deepEqual((await future.page.locator('#monthlySummary [data-summary-date="2026-09-13"] td').allTextContents()).slice(1), [value, value]);
+    }
+    assert.deepEqual(await future.page.locator('#monthlySummary table').last().locator('tbody tr').nth(12).locator('.cell-upper').allTextContents(), ['9', '9']);
+    assert.deepEqual(await future.page.locator('#monthlySummary table').last().locator('tbody tr').nth(12).locator('.cell-lower').allTextContents(), ['5', '5']);
+    await future.page.locator('[data-summary-view="weekly"]').click();
     await future.page.clock.setFixedTime(new Date('2026-09-07T03:00:00Z'));
     await future.page.locator('#summaryRefreshBtn').click();
-    await assertFourWeeklyTables(future.page, '2026-09-07');
+    await assertTwoWeeklyTables(future.page, '2026-09-07');
     const mondayWeek = future.page.locator('#weeklySummary table').first();
-    for (let index = 0; index < 6; index++) assert.ok((await mondayWeek.locator('tbody tr').nth(index).locator('td').allTextContents()).every(cell => cell.trim() === ''));
-    assert.equal(await mondayWeek.locator('tbody tr').last().getAttribute('data-summary-date'), '2026-09-07');
+    for (let index = 1; index < 7; index++) assert.ok((await mondayWeek.locator('tbody tr').nth(index).locator('td').allTextContents()).every(cell => cell.trim() === ''));
+    assert.equal(await mondayWeek.locator('tbody tr').first().getAttribute('data-summary-date'), '2026-09-07');
+    assert.equal(future.backend.db.black_garlic_entries.find(row => row.id === 'future-main').inventory_qty, 99);
+    assert.equal(future.backend.db.black_garlic_storage_entries.find(row => row.id === 'future-storage').columns16, 9);
     assert.equal(future.backend.writes.length, 0);
     assert.deepEqual(future.backend.errors, []);
-    results.weeklyDescendingDatesBlankFutureAllMetricsAndVisibleWhenTodayMonthlyPreserved = true;
+    results.weeklyTwoAscendingAndMonthlyBlankFutureAllMetricsStorageAndVisibleWhenTodayDataPreserved = true;
     await future.context.close();
 
     const paginated = await scenario(browser, { pageLimit: 700 });
@@ -743,6 +768,7 @@ async function run() {
     await paginated.context.close();
 
     results.maturationBaseDateBoundariesRoomsZeroDayFallbackDraftPersistenceReloadAndLeapYear = await require('./maturation.cjs')(browser, scenario, unlocked);
+    results.compactActualGraphSingleRowDatePickerFullDateLeapAndYearLabelsResponsiveAndNoWrites = await require('./compact-graph.cjs')(browser, scenario, unlocked);
     results.roomCapacitiesDraftSaveReloadRenameReorderZeroBlankDeleteResponsiveAndNoInventoryLimit = await require('./room-capacities.cjs')(browser, scenario, unlocked);
     results.fullscreenGraphPortraitLandscapeRotationScopedNativeExitFallbackAndPendingCleanup = await require('./graph-rotation.cjs')(browser, scenario, unlocked);
 

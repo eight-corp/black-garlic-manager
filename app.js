@@ -24,6 +24,8 @@
     inventory: { label: "在庫", field: "inventory_qty", className: "" }
   };
 
+  const compactGraphDateFormat = new Intl.DateTimeFormat("ja-JP", { year: "2-digit", month: "2-digit", day: "2-digit" });
+
   const state = {
     client: null,
     workerId: "",
@@ -116,6 +118,17 @@
     });
     $("summaryRefreshBtn").addEventListener("click", renderSummary);
     $("graphRefreshBtn").addEventListener("click", renderSummaryGraph);
+    ["graphStartDate", "graphEndDate"].forEach(id => {
+      $(id).addEventListener("input", updateCompactGraphDates);
+      $(id).addEventListener("change", updateCompactGraphDates);
+      $(id).addEventListener("click", () => {
+        try {
+          $(id).showPicker?.();
+        } catch (error) {
+          // Browsers without picker control retain the native date input.
+        }
+      });
+    });
     ["graphType", "graphRoom", "graphInType", "graphOutType", "graphInventoryType"].forEach(id => {
       $(id).addEventListener("change", renderSummaryGraph);
     });
@@ -799,10 +812,10 @@
   function renderWeeklySummary() {
     const base = parseYmd($("summaryStartDate").value);
     const currentMonday = startOfWeekMonday(base);
-    $("weeklySummary").innerHTML = Array.from({ length: 4 }, (_, index) => {
+    $("weeklySummary").innerHTML = Array.from({ length: 2 }, (_, index) => {
       const monday = addDays(currentMonday, -index * 7);
       const sunday = addDays(monday, 6);
-      const matrix = roomSummaryMatrix(dateRange(monday, sunday).reverse(), { blankFuture: true });
+      const matrix = roomSummaryMatrix(dateRange(monday, sunday), { blankFuture: true });
       return `
         <h2 class="print-title room-summary-title">
           <span>週毎集計（${esc(matrix.label)}）</span>
@@ -819,14 +832,16 @@
     const end = new Date(base.getFullYear(), base.getMonth() + 1, 0);
     const days = dateRange(start, end);
     const storageTypes = activeRows(state.data.storageTypes);
-    const matrix = roomSummaryMatrix(days);
+    const matrix = roomSummaryMatrix(days, { blankFuture: true });
+    const today = todayStr();
 
     const storageRows = days.map(day => {
       const ymd = dateToStr(day);
+      const future = ymd > today;
       let columnsTotal = 0;
       let piecesTotal = 0;
       const cells = storageTypes.map(type => {
-        const rows = state.data.storageEntries.filter(row => row.storage_date === ymd && isVisibleStorageEntry(row) && row.storage_type_id === type.id);
+        const rows = future ? [] : state.data.storageEntries.filter(row => row.storage_date === ymd && isVisibleStorageEntry(row) && row.storage_type_id === type.id);
         const columns = sum(rows, "columns16");
         const pieces = sum(rows, "pieces");
         columnsTotal += columns;
@@ -834,7 +849,7 @@
         return twoLineCell(numOrBlank(columns, 0), numOrBlank(pieces, 0));
       });
       return `<tr>
-        <td class="${day.getDay() === 0 ? "sun-date" : ""}">${esc(fmtDate(ymd))}</td>
+        <td class="${day.getDay() === 0 ? "sun-date" : ""}">${future ? "&nbsp;" : esc(fmtDate(ymd))}</td>
         ${cells.join("")}
         ${twoLineCell(numOrBlank(columnsTotal, 0), numOrBlank(piecesTotal, 0), "", "", "total-col")}
       </tr>`;
@@ -930,7 +945,16 @@
     createIcons();
   }
 
+  function updateCompactGraphDates() {
+    ["graphStartDate", "graphEndDate"].forEach(id => {
+      const input = $(id);
+      $(`${id}Text`).textContent = input.value ? compactGraphDateFormat.format(parseYmd(input.value)) : "--/--/--";
+      input.title = input.value;
+    });
+  }
+
   function renderSummaryGraph() {
+    updateCompactGraphDates();
     const start = $("graphStartDate").value;
     const end = $("graphEndDate").value;
     const days = dateRange(parseYmd(start), parseYmd(end));
