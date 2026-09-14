@@ -58,7 +58,7 @@ async function testCompactGraph(browser, scenario, unlocked) {
     ]) {
       await page.locator('#graphStartDate').fill(start);
       await page.locator('#graphEndDate').fill(end);
-      assert.deepEqual(await page.locator('.graph-date-display > span').allTextContents(), values);
+      assert.deepEqual(await page.locator('.actual-graph-toolbar .graph-date-display > span').allTextContents(), values);
       assert.equal(await page.locator('#graphStartDate').inputValue(), start);
       assert.equal(await page.locator('#graphEndDate').inputValue(), end);
     }

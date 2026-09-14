@@ -1,7 +1,11 @@
 const assert = require('node:assert/strict');
 const path = require('node:path');
 
-async function testGraphRotation(browser, scenario, unlocked) {
+async function testGraphRotation(browser, scenario, unlocked, view = 'graph') {
+  const storage = view === 'storageGraph';
+  const prefix = storage ? 'storageGraph' : 'graph';
+  const graphId = storage ? 'storageGraphSummary' : 'summaryGraph';
+  const canvasId = storage ? 'storageSummaryChart' : 'summaryChart';
   for (const mode of ['supported', 'denied', 'missing', 'lock-denied', 'pending-lock', 'pending-fullscreen', 'desktop']) {
     const { context, backend, page } = await scenario(browser, { mobile: mode !== 'desktop' });
     try {
@@ -40,14 +44,14 @@ async function testGraphRotation(browser, scenario, unlocked) {
       await page.goto('https://eight-corp.github.io/black-garlic-manager/');
       await unlocked(page);
       await page.locator('[data-tab="summary"]').click();
-      await page.locator('[data-summary-view="graph"]').click();
-      await page.locator('#graphStartDate').fill('2026-09-10');
-      await page.locator('#graphEndDate').fill('2026-09-12');
-      await page.locator('#graphRefreshBtn').click();
+      await page.locator('[data-summary-view="' + view + '"]').click();
+      await page.locator('#' + prefix + 'StartDate').fill('2026-09-10');
+      await page.locator('#' + prefix + 'EndDate').fill('2026-09-12');
+      await page.locator('#' + prefix + 'RefreshBtn').click();
       const reads = backend.reads.length;
-      await page.locator('#graphFullscreenBtn').click();
+      await page.locator('#' + prefix + 'FullscreenBtn').click();
       if (['supported', 'lock-denied', 'pending-lock', 'pending-fullscreen'].includes(mode)) {
-        await page.waitForFunction(() => document.fullscreenElement?.id === 'summaryGraph');
+        await page.waitForFunction(id => document.fullscreenElement?.id === id, graphId);
         if (mode !== 'pending-fullscreen') await page.waitForFunction(() => window.rotationTest.locks.length === 1);
       }
       assert.equal(await page.locator('#graphFullscreenDialog').evaluate(dialog => dialog.open), true);
@@ -58,15 +62,15 @@ async function testGraphRotation(browser, scenario, unlocked) {
           screen.orientation?.dispatchEvent(new Event('change'));
           visualViewport?.dispatchEvent(new Event('resize'));
         });
-        await page.waitForFunction(() => {
-          const canvas = document.querySelector('#summaryChart');
+        await page.waitForFunction(id => {
+          const canvas = document.getElementById(id);
           const bounds = canvas.getBoundingClientRect();
           const host = document.fullscreenElement || document.querySelector('#graphFullscreenDialog');
           const frame = host.getBoundingClientRect();
           return Math.abs(frame.width - innerWidth) < 1 && Math.abs(frame.height - innerHeight) < 1 && bounds.width >= innerWidth - 20 && bounds.width <= innerWidth && bounds.height > 120 && bounds.bottom <= innerHeight - 7 && host.scrollWidth <= innerWidth;
-        }, null, { timeout: 10000 });
-        assert.deepEqual(await page.locator('#summaryChart').evaluate(canvas => Chart.getChart(canvas).data.datasets.map(dataset => dataset.data)), [[0, 10, 0], [0, 2, 0], [0, 8, 8], [null, null, null]]);
-        assert.ok(await page.locator('#summaryChart').evaluate(canvas => {
+        }, canvasId, { timeout: 10000 });
+        assert.deepEqual(await page.locator('#' + canvasId).evaluate(canvas => Chart.getChart(canvas).data.datasets.map(dataset => dataset.data)), storage ? [[null, 4.5, 4.5]] : [[0, 10, 0], [0, 2, 0], [0, 8, 8], [null, null, null]]);
+        assert.ok(await page.locator('#' + canvasId).evaluate(canvas => {
           const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
           let colorful = 0;
           for (let i = 0; i < pixels.length; i += 4) {
@@ -76,18 +80,18 @@ async function testGraphRotation(browser, scenario, unlocked) {
         }));
       }
       const trace = await page.evaluate(() => window.rotationTest);
-      assert.deepEqual(trace.requests, ['desktop', 'missing'].includes(mode) ? [] : ['summaryGraph']);
+      assert.deepEqual(trace.requests, ['desktop', 'missing'].includes(mode) ? [] : [graphId]);
       assert.deepEqual(trace.locks, ['supported', 'lock-denied', 'pending-lock'].includes(mode) ? ['any'] : []);
       if (mode === 'supported') assert.equal(trace.policy, 'any');
-      if (process.env.QA_ARTIFACTS) await page.screenshot({ path: path.join(process.env.QA_ARTIFACTS, 'graph-rotation-' + mode + '-landscape.png') });
+      if (process.env.QA_ARTIFACTS) await page.screenshot({ path: path.join(process.env.QA_ARTIFACTS, 'graph-rotation-' + (storage ? 'storage-' : '') + mode + '-landscape.png') });
       if (mode === 'supported') await page.evaluate(() => document.exitFullscreen());
-      else await page.locator('#graphFullscreenBtn').click();
+      else await page.locator('#' + prefix + 'FullscreenBtn').click();
       await page.waitForFunction(() => !document.fullscreenElement && !document.querySelector('#graphFullscreenDialog').open);
       await page.evaluate(() => {
         window.completeOrientationRequest?.();
         window.completeFullscreenRequest?.();
       });
-      await page.waitForFunction(() => document.querySelector('#summaryPanel').contains(document.querySelector('#summaryGraph')) && !document.body.classList.contains('graph-fullscreen-active'));
+      await page.waitForFunction(id => document.querySelector('#summaryPanel').contains(document.getElementById(id)) && !document.body.classList.contains('graph-fullscreen-active'), graphId);
       await page.locator('[data-tab="main"]').click();
       await page.evaluate(() => window.dispatchEvent(new Event('orientationchange')));
       const after = await page.evaluate(() => window.rotationTest);

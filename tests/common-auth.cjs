@@ -248,7 +248,7 @@ async function run() {
           const main = document.querySelector('.tabs').getBoundingClientRect();
           const buttons = [...element.querySelectorAll('button')];
           return getComputedStyle(element).position === 'fixed' && bounds.top > innerHeight * .6 && bounds.bottom <= main.top + .5 &&
-            Math.abs(main.bottom - innerHeight) < 1 && buttons.length === 5 && element.querySelectorAll('.active').length === 1 &&
+            Math.abs(main.bottom - innerHeight) < 1 && buttons.length === 6 && element.querySelectorAll('.active').length === 1 &&
             buttons.every(button => { const r = button.getBoundingClientRect(); return r.left >= bounds.left && r.right <= bounds.right && r.top >= bounds.top && r.bottom <= bounds.bottom && button.scrollWidth <= button.clientWidth && document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)?.closest('button') === button; });
         }), 'bottom tabs:' + view + ':' + width);
         assert.ok(await app.locator('.main-summary-controls').evaluate(element => {
@@ -534,7 +534,7 @@ async function run() {
     await graph.page.goto(appUrl); await unlocked(graph.page);
     await openActualGraph(graph.page);
     assert.equal(await graph.page.locator('[data-tab="prediction"] span').textContent(), '\u30b0\u30e9\u30d5');
-    assert.deepEqual(await graph.page.locator('.summary-bottom-tabs button').allTextContents(), ['\u9031\u6bce(\u5ba4)', '\u9031\u6bce(\u4fdd\u7ba1\u5eab)', '\u6708\u6bce(\u5ba4)', '\u6708\u6bce(\u4fdd\u7ba1\u5eab)', '\u30b0\u30e9\u30d5']);
+    assert.deepEqual(await graph.page.locator('.summary-bottom-tabs button').allTextContents(), ['\u9031\u6bce(\u5ba4)', '\u9031\u6bce(\u4fdd\u7ba1\u5eab)', '\u6708\u6bce(\u5ba4)', '\u6708\u6bce(\u4fdd\u7ba1\u5eab)', '\u30b0\u30e9\u30d5(\u5ba4)', '\u30b0\u30e9\u30d5(\u4fdd\u7ba1\u5eab)']);
     assert.equal(await graph.page.locator('#summaryPanel #summaryGraph').count(), 1);
     assert.equal(await graph.page.locator('#predictionPanel #summaryGraph,[data-graph-view],.graphs-bottom-tabs').count(), 0);
     assert.equal(await graph.page.locator('#summaryMetricControls').isVisible(), false);
@@ -780,6 +780,8 @@ async function run() {
     results.roomCapacitiesDraftSaveReloadRenameReorderZeroBlankDeleteResponsiveAndNoInventoryLimit = await require('./room-capacities.cjs')(browser, scenario, unlocked);
     results.allRoomCapacityPercentBlackIndependentAxisFiltersCarryForwardOver100MissingZeroResponsiveFullscreenAndNoWrites = await require('./capacity-percent.cjs')(browser, scenario, unlocked);
     results.fullscreenGraphPortraitLandscapeRotationScopedNativeExitFallbackAndPendingCleanup = await require('./graph-rotation.cjs')(browser, scenario, unlocked);
+    results.storageGraphSnapshotsTotalsStorageTypeFiltersIndependentPeriodsStylesMissingFutureResponsiveRefreshPrintAndNoWrites = await require('./storage-graph.cjs')(browser, scenario, unlocked);
+    results.storageFullscreenRotationNativeExitFallbackAndPendingCleanup = await require('./graph-rotation.cjs')(browser, scenario, unlocked, 'storageGraph');
 
     for (const role of ['operator', 'viewer']) {
       const test = await scenario(browser, { role });

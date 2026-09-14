@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 
 const appUrl = 'https://eight-corp.github.io/black-garlic-manager/';
-const labels = ['\u9031\u6bce(\u5ba4)', '\u9031\u6bce(\u4fdd\u7ba1\u5eab)', '\u6708\u6bce(\u5ba4)', '\u6708\u6bce(\u4fdd\u7ba1\u5eab)', '\u30b0\u30e9\u30d5'];
+const labels = ['\u9031\u6bce(\u5ba4)', '\u9031\u6bce(\u4fdd\u7ba1\u5eab)', '\u6708\u6bce(\u5ba4)', '\u6708\u6bce(\u4fdd\u7ba1\u5eab)', '\u30b0\u30e9\u30d5(\u5ba4)', '\u30b0\u30e9\u30d5(\u4fdd\u7ba1\u5eab)'];
 const extraType = '\u9078\u5225(\u826f)';
 
 module.exports = async function storageSummaries(browser, scenario, unlocked, assertTwoWeeklyTables) {
@@ -74,7 +74,7 @@ module.exports = async function storageSummaries(browser, scenario, unlocked, as
               button.scrollWidth <= button.clientWidth && button.scrollHeight <= button.clientHeight &&
               document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)?.closest('button') === button;
           });
-        }), 'five readable tabs:' + width);
+        }), 'six readable tabs:' + width);
         assert.ok(await page.locator('.main-summary-controls').evaluate(controls => {
           const bounds = controls.getBoundingClientRect();
           const fields = [...controls.querySelectorAll('input,select,button')].map(field => field.getBoundingClientRect()).filter(r => r.width);

@@ -38,6 +38,7 @@
     graphFullscreen: null,
     charts: {
       summary: null,
+      storageSummary: null,
       prediction: null
     }
   };
@@ -118,7 +119,8 @@
     });
     $("summaryRefreshBtn").addEventListener("click", renderSummary);
     $("graphRefreshBtn").addEventListener("click", renderSummaryGraph);
-    ["graphStartDate", "graphEndDate"].forEach(id => {
+    $("storageGraphRefreshBtn").addEventListener("click", renderStorageSummaryGraph);
+    ["graphStartDate", "graphEndDate", "storageGraphStartDate", "storageGraphEndDate"].forEach(id => {
       $(id).addEventListener("input", updateCompactGraphDates);
       $(id).addEventListener("change", updateCompactGraphDates);
       $(id).addEventListener("click", () => {
@@ -132,7 +134,11 @@
     ["graphType", "graphRoom", "graphInType", "graphOutType", "graphInventoryType"].forEach(id => {
       $(id).addEventListener("change", renderSummaryGraph);
     });
+    ["storageGraphType", "storageGraphStyle"].forEach(id => {
+      $(id).addEventListener("change", renderStorageSummaryGraph);
+    });
     $("graphFullscreenBtn").addEventListener("click", toggleGraphFullscreen);
+    $("storageGraphFullscreenBtn").addEventListener("click", toggleGraphFullscreen);
     $("graphFullscreenDialog").addEventListener("cancel", event => {
       event.preventDefault();
       closeGraphFullscreen();
@@ -143,7 +149,7 @@
     document.addEventListener("fullscreenchange", () => {
       const fullscreen = state.graphFullscreen;
       if (!fullscreen) return;
-      if (document.fullscreenElement === $("summaryGraph")) {
+      if (document.fullscreenElement === fullscreen.graph) {
         fullscreen.nativeEntered = true;
         resizeFullscreenGraph();
       } else if (fullscreen.nativeEntered) {
@@ -156,13 +162,15 @@
     window.visualViewport?.addEventListener("resize", resizeFullscreenGraph);
     window.addEventListener("beforeprint", () => {
       closeGraphFullscreen();
-      if (state.activeTab === "prediction" || (state.activeTab === "summary" && state.activeSummary === "graph")) {
+      if (state.activeTab === "prediction" || (state.activeTab === "summary" && ["graph", "storageGraph"].includes(state.activeSummary))) {
         state.charts.summary?.resize();
+        state.charts.storageSummary?.resize();
         state.charts.prediction?.resize();
       }
     });
     window.addEventListener("afterprint", () => {
       state.charts.summary?.resize();
+      state.charts.storageSummary?.resize();
       state.charts.prediction?.resize();
     });
     $("summaryPrintBtn").addEventListener("click", () => window.print());
@@ -369,6 +377,7 @@
     fillSelect("summaryRoom", activeRows(state.data.rooms), "id", "room_name", "全体");
     fillSelect("graphType", activeRows(state.data.types), "id", "type_name", "全体");
     fillSelect("graphRoom", activeRows(state.data.rooms), "id", "room_name", "全体");
+    fillSelect("storageGraphType", activeRows(state.data.storageTypes), "id", "type_name", "全体");
     fillSelect("predictionType", activeRows(state.data.types), "id", "type_name", "全体");
     fillSelect("predictionRoom", activeRows(state.data.rooms), "id", "room_name", "全体");
     $("avgUsage").value = state.data.settings.prediction && state.data.settings.prediction.avgUsage !== undefined
@@ -465,7 +474,7 @@
   }
 
   function updateGraphControls() {
-    const actual = state.activeTab === "summary" && state.activeSummary === "graph";
+    const actual = state.activeTab === "summary" && ["graph", "storageGraph"].includes(state.activeSummary);
     const forecast = state.activeTab === "prediction";
     const storage = state.activeTab === "summary" && ["weeklyStorage", "monthlyStorage"].includes(state.activeSummary);
     document.body.classList.toggle("summary-storage-active", storage);
@@ -784,6 +793,7 @@
     if (state.activeSummary === "monthly") renderMonthlySummary();
     if (state.activeSummary === "monthlyStorage") renderMonthlyStorageSummary();
     if (state.activeSummary === "graph") renderSummaryGraph();
+    if (state.activeSummary === "storageGraph") renderStorageSummaryGraph();
     fitResponsiveTables($("summaryPanel"));
   }
 
@@ -906,18 +916,25 @@
       closeGraphFullscreen();
       return;
     }
-    dialog.appendChild($("summaryGraph"));
+    const storage = state.activeSummary === "storageGraph";
+    const graph = $(storage ? "storageGraphSummary" : "summaryGraph");
+    state.graphFullscreen = {
+      graph, chartKey: storage ? "storageSummary" : "summary", buttonId: storage ? "storageGraphFullscreenBtn" : "graphFullscreenBtn",
+      parent: graph.parentElement, nextSibling: graph.nextSibling,
+      nativeEntered: false, orientationRequested: false, resizeFrame: 0, resizeTimer: 0
+    };
+    dialog.setAttribute("aria-label", storage ? "保管庫グラフの全画面表示" : "入出庫・在庫グラフの全画面表示");
+    dialog.appendChild(graph);
     dialog.showModal();
     document.body.classList.add("graph-fullscreen-active");
-    state.graphFullscreen = { nativeEntered: false, orientationRequested: false, resizeFrame: 0, resizeTimer: 0 };
-    updateGraphFullscreenButton(true);
-    $("graphFullscreenBtn").focus();
+    updateGraphFullscreenButton(true, state.graphFullscreen.buttonId);
+    $(state.graphFullscreen.buttonId).focus();
     resizeFullscreenGraph();
     enableFullscreenGraphRotation(state.graphFullscreen);
   }
 
   async function enableFullscreenGraphRotation(fullscreen) {
-    const graph = $("summaryGraph");
+    const graph = fullscreen.graph;
     if (!window.matchMedia("(pointer: coarse)").matches || !document.fullscreenEnabled || typeof graph.requestFullscreen !== "function") return;
     try {
       await graph.requestFullscreen({ navigationUI: "hide" });
@@ -943,7 +960,7 @@
     cancelAnimationFrame(fullscreen.resizeFrame);
     clearTimeout(fullscreen.resizeTimer);
     const resize = () => {
-      if (state.graphFullscreen === fullscreen && $("graphFullscreenDialog").open) state.charts.summary?.resize();
+      if (state.graphFullscreen === fullscreen && $("graphFullscreenDialog").open) state.charts[fullscreen.chartKey]?.resize();
     };
     fullscreen.resizeFrame = requestAnimationFrame(resize);
     fullscreen.resizeTimer = setTimeout(resize, 250);
@@ -951,8 +968,8 @@
 
   function closeGraphFullscreen() {
     const dialog = $("graphFullscreenDialog");
-    if (!dialog.contains($("summaryGraph"))) return;
     const fullscreen = state.graphFullscreen;
+    if (!fullscreen) return;
     state.graphFullscreen = null;
     if (fullscreen) {
       cancelAnimationFrame(fullscreen.resizeFrame);
@@ -965,16 +982,16 @@
         }
       }
     }
-    if (document.fullscreenElement === $("summaryGraph")) document.exitFullscreen().catch(() => {});
+    if (document.fullscreenElement === fullscreen.graph) document.exitFullscreen().catch(() => {});
     if (dialog.open) dialog.close();
-    $("summaryPanel").insertBefore($("summaryGraph"), document.querySelector(".summary-bottom-tabs"));
+    fullscreen.parent.insertBefore(fullscreen.graph, fullscreen.nextSibling);
     document.body.classList.remove("graph-fullscreen-active");
-    updateGraphFullscreenButton(false);
-    requestAnimationFrame(() => state.charts.summary?.resize());
+    updateGraphFullscreenButton(false, fullscreen.buttonId);
+    requestAnimationFrame(() => state.charts[fullscreen.chartKey]?.resize());
   }
 
-  function updateGraphFullscreenButton(fullscreen) {
-    const button = $("graphFullscreenBtn");
+  function updateGraphFullscreenButton(fullscreen, buttonId) {
+    const button = $(buttonId);
     const label = fullscreen ? "全画面表示を終了" : "全画面表示";
     button.title = label;
     button.setAttribute("aria-label", label);
@@ -983,7 +1000,7 @@
   }
 
   function updateCompactGraphDates() {
-    ["graphStartDate", "graphEndDate"].forEach(id => {
+    ["graphStartDate", "graphEndDate", "storageGraphStartDate", "storageGraphEndDate"].forEach(id => {
       const input = $(id);
       $(`${id}Text`).textContent = input.value ? compactGraphDateFormat.format(parseYmd(input.value)) : "--/--/--";
       input.title = input.value;
@@ -1054,6 +1071,52 @@
         ]
       },
       options
+    });
+  }
+
+  function renderStorageSummaryGraph() {
+    updateCompactGraphDates();
+    const start = $("storageGraphStartDate").value;
+    const end = $("storageGraphEndDate").value;
+    const days = dateRange(parseYmd(start), parseYmd(end));
+    const typeId = $("storageGraphType").value;
+    const typeName = $("storageGraphType").selectedOptions[0]?.textContent || "全体";
+    $("storageGraphPrintTitle").textContent = `グラフ(保管庫) ${typeName} ${start}〜${end}`;
+    const today = todayStr();
+    const rows = state.data.storageEntries
+      .filter(row => isVisibleStorageEntry(row) && (typeId === "All" || !typeId || row.storage_type_id === typeId))
+      .sort((a, b) => compareDisplay(a.storage_date, b.storage_date) || compareDisplay(a.recorded_at, b.recorded_at));
+    const latestByType = new Map();
+    let index = 0;
+    const data = days.map(day => {
+      const ymd = dateToStr(day);
+      if (ymd > today) return null;
+      while (index < rows.length && rows[index].storage_date <= ymd) {
+        const row = rows[index++];
+        latestByType.set(row.storage_type_id, row);
+      }
+      return latestByType.size ? round2(Array.from(latestByType.values()).reduce((total, row) => total + storageColumns(row), 0)) : null;
+    });
+    const status = $("storageGraphStatus");
+    status.hidden = data.some(value => value !== null);
+    status.textContent = status.hidden ? "" : "表示期間に保管数のデータがありません";
+    if (typeof Chart === "undefined") return;
+    if (state.charts.storageSummary) state.charts.storageSummary.destroy();
+    state.charts.storageSummary = new Chart($("storageSummaryChart"), {
+      type: $("storageGraphStyle").value,
+      data: {
+        labels: days.map(day => fmtShortDate(dateToStr(day))),
+        datasets: [{ label: "保管数(列)", data, borderColor: "#28a745", backgroundColor: "rgba(40,167,69,.45)", tension: 0 }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { position: "bottom" },
+          tooltip: { callbacks: { label: context => `保管数: ${context.formattedValue}列` } }
+        },
+        scales: { y: { beginAtZero: true, title: { display: true, text: "保管数(列)" } } }
+      }
     });
   }
 
@@ -1723,6 +1786,8 @@
     $("summaryStartDate").max = today;
     $("graphStartDate").value = dateToStr(addDays(parseYmd(today), -30));
     $("graphEndDate").value = dateToStr(addDays(parseYmd(today), 1));
+    $("storageGraphStartDate").value = dateToStr(addDays(parseYmd(today), -30));
+    $("storageGraphEndDate").value = dateToStr(addDays(parseYmd(today), 1));
     $("predictionStartDate").value = dateToStr(addDays(parseYmd(today), -7));
     $("predictionEndDate").value = dateToStr(addDays(parseYmd(today), 30));
     updateMainDateWeekday();

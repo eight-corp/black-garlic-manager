@@ -450,7 +450,7 @@ body.summary-storage-active #summaryMetricControls {
   bottom: var(--main-nav-height);
   z-index: 29;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 4px;
   height: var(--summary-nav-height);
   overflow: visible;
@@ -550,6 +550,8 @@ body.summary-storage-active #summaryMetricControls {
   font-size: 13px;
   line-height: 1.2;
 }
+
+.summary-bottom-tabs .sub-tab > span { font-size: 11px; }
 
 .summary-view,
 .graph-view,
@@ -807,7 +809,7 @@ body.summary-graph-active #summaryMetricControls {
   gap: 4px;
 }
 
-.actual-graph-toolbar {
+:is(.actual-graph-toolbar, .storage-graph-toolbar) {
   display: grid;
   gap: 8px;
 }
@@ -891,6 +893,8 @@ body.summary-graph-active #summaryMetricControls {
 .graph-out-series .graph-series-swatch { background: var(--out-color); }
 .graph-inventory-series .graph-series-swatch { background: #28a745; }
 
+.storage-graph-print-title { display: none; }
+
 .graph-capacity-status {
   margin: 0;
   font-size: 12px;
@@ -901,6 +905,7 @@ body.summary-graph-active #summaryMetricControls {
 #summaryGraph:has(#graphCapacityStatus:not([hidden])) { gap: 4px; }
 
 #summaryGraph .chart-box,
+#storageGraphSummary .chart-box,
 #predictionChartView .chart-box {
   flex: 1 1 0;
   height: auto;
@@ -932,9 +937,9 @@ body.graph-fullscreen-active { overflow: hidden; }
 }
 
 .graph-fullscreen-dialog[open] { display: flex; }
-.graph-fullscreen-dialog #summaryGraph .chart-box { min-height: 0; }
+.graph-fullscreen-dialog :is(#summaryGraph, #storageGraphSummary) .chart-box { min-height: 0; }
 
-#summaryGraph:fullscreen {
+:is(#summaryGraph, #storageGraphSummary):fullscreen {
   display: flex;
   width: 100%;
   height: 100%;
@@ -943,7 +948,7 @@ body.graph-fullscreen-active { overflow: hidden; }
   background: #fff;
 }
 
-#summaryGraph:fullscreen .chart-box { min-height: 0; }
+:is(#summaryGraph, #storageGraphSummary):fullscreen .chart-box { min-height: 0; }
 
 .master-list {
   display: grid;
@@ -1579,23 +1584,23 @@ body.graphs-active:not(.summary-graph-active) .toast {
   .type-harvest-date-display > svg { width: 10px; height: 10px; flex: 0 0 10px; }
   .type-harvest-date-input:focus-within .type-harvest-date-display { outline: 2px solid var(--brand); outline-offset: 1px; }
 
-  .actual-graph-toolbar {
+  :is(.actual-graph-toolbar, .storage-graph-toolbar) {
     grid-template-columns: repeat(2, minmax(0, .8fr)) repeat(2, minmax(0, 1.1fr)) 26px 26px;
     gap: 4px;
     align-items: end;
   }
 
-  .actual-graph-toolbar .summary-controls {
+  :is(.actual-graph-toolbar, .storage-graph-toolbar) .summary-controls {
     display: contents;
   }
 
-  .actual-graph-toolbar label {
+  :is(.actual-graph-toolbar, .storage-graph-toolbar) label {
     min-width: 0;
     font-size: 11px;
     white-space: nowrap;
   }
 
-  .actual-graph-toolbar select {
+  :is(.actual-graph-toolbar, .storage-graph-toolbar) select {
     min-width: 0;
     min-height: 34px;
     padding: 4px 12px 4px 2px;
@@ -1614,7 +1619,7 @@ body.graphs-active:not(.summary-graph-active) .toast {
     pointer-events: none;
   }
 
-  .actual-graph-toolbar .graph-date-input input {
+  :is(.actual-graph-toolbar, .storage-graph-toolbar) .graph-date-input input {
     position: absolute;
     inset: 0;
     z-index: 1;
@@ -1657,14 +1662,14 @@ body.graphs-active:not(.summary-graph-active) .toast {
     outline-offset: 2px;
   }
 
-  .actual-graph-toolbar .graph-controls .icon-btn {
+  :is(.actual-graph-toolbar, .storage-graph-toolbar) .graph-controls .icon-btn {
     width: 26px;
     min-width: 26px;
     min-height: 34px;
     padding: 0;
   }
 
-  .actual-graph-toolbar .graph-controls .icon-btn svg {
+  :is(.actual-graph-toolbar, .storage-graph-toolbar) .graph-controls .icon-btn svg {
     width: 16px;
     height: 16px;
   }
@@ -1672,6 +1677,8 @@ body.graphs-active:not(.summary-graph-active) .toast {
 }
 
 @media print {
+  .storage-graph-print-title { display: block; }
+
   .app-header,
   .tabs,
   .sub-tabs,
@@ -1719,6 +1726,7 @@ body.graphs-active:not(.summary-graph-active) .toast {
   }
 
   #summaryGraph .chart-box,
+  #storageGraphSummary .chart-box,
   #predictionChartView .chart-box {
     flex: none;
     height: 140mm;
