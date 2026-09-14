@@ -66,15 +66,36 @@ async function testCapacityPercent(browser, scenario, unlocked) {
     assert.equal(options.tick, '150%');
     assert.equal(options.tooltip, '\u5168\u5ba4\u53ce\u5bb9\u7387: 150%');
     assert.equal(options.flowTooltip, '\u5165\u5eab: 5');
-    for (const [type, room, stock] of [
-      ['type', 'room', [0, 5, 5, 5, 5]],
-      ['type-2', 'All', [0, 3, 3, 3, 3]],
-      ['All', 'room-2', [0, 7, 7, 37, 37]]
+    for (const [type, room, stock, capacity] of [
+      ['type', 'room', [0, 5, 5, 5, 5], [null, 40, 40, 140, 140]],
+      ['type-2', 'All', [0, 3, 3, 3, 3], [null, 30, 30, 30, 30]],
+      ['All', 'room-2', [0, 7, 7, 37, 37], [0, 50, 50, 150, 150]]
     ]) {
       await page.locator('#graphType').selectOption(type);
       await page.locator('#graphRoom').selectOption(room);
       assert.deepEqual(await page.locator('#summaryChart').evaluate(canvas => Chart.getChart(canvas).data.datasets[2].data), stock);
+      assert.deepEqual(await percent(), capacity);
+    }
+    for (const style of ['bar', 'line']) {
+      await page.locator('#graphCapacityType').selectOption(style);
+      assert.equal(await page.locator('#summaryChart').evaluate(canvas => Chart.getChart(canvas).getDatasetMeta(3).type), style);
       assert.deepEqual(await percent(), [0, 50, 50, 150, 150]);
+      if (style === 'bar') {
+        assert.ok(await page.locator('#summaryChart').evaluate(canvas => {
+          const chart = Chart.getChart(canvas);
+          const bar = chart.getDatasetMeta(3).data[3];
+          const ratio = chart.currentDevicePixelRatio;
+          const x = Math.round(bar.x * ratio);
+          const y = Math.round((bar.y + bar.base) / 2 * ratio);
+          const pixels = canvas.getContext('2d').getImageData(x - 2, y - 2, 5, 5).data;
+          let black = 0;
+          for (let index = 0; index < pixels.length; index += 4) {
+            if (pixels[index] < 5 && pixels[index + 1] < 5 && pixels[index + 2] < 5 && pixels[index + 3] > 100) black++;
+          }
+          return bar.width > 2 && bar.height > 10 && black > 3;
+        }), 'Black capacity bars must render against the percent axis');
+        if (process.env.QA_ARTIFACTS) await page.screenshot({ path: path.join(process.env.QA_ARTIFACTS, 'capacity-percent-bar.png') });
+      }
     }
     for (const width of [320, 360, 390, 760, 761, 844, 1280]) {
       await page.setViewportSize({ width, height: 844 });
@@ -134,6 +155,38 @@ async function testCapacityPercent(browser, scenario, unlocked) {
       assert.deepEqual(await page.locator('#summaryChart').evaluate(canvas => Chart.getChart(canvas).data.datasets[2].data), [0, 15, 15, 45, 45]);
       assert.equal(backend.writes.length, 0);
     }
+    capacitySetting.setting_value = { room: 10, 'room-2': 20 };
+    backend.db.black_garlic_entries.push(entry('empty-room', '2026-09-11', 'room-2', 'type', 0));
+    await openGraph();
+    await page.locator('#graphType').selectOption('type');
+    assert.deepEqual(await percent(), [null, 40, 50, 140, 140]);
+    assert.equal(await page.locator('#summaryChart').evaluate(canvas => {
+      const chart = Chart.getChart(canvas);
+      return chart.options.plugins.tooltip.callbacks.afterLabel({ dataset: chart.data.datasets[3], dataIndex: 2 });
+    }), '\u5728\u5eab: 5 / \u53ce\u5bb9\u80fd\u529b: 10');
+    await page.locator('#graphRoom').selectOption('room-2');
+    assert.deepEqual(await percent(), [null, 40, 50, 140, 140]);
+    assert.deepEqual(await page.locator('#summaryChart').evaluate(canvas => Chart.getChart(canvas).data.datasets[2].data), [0, 7, 0, 37, 37]);
+    capacitySetting.setting_value = { room: 10 };
+    await openGraph();
+    await page.locator('#graphType').selectOption('type-2');
+    assert.deepEqual(await percent(), [null, 30, 30, 30, 30]);
+    assert.equal(await page.locator('#graphCapacityStatus').isVisible(), false);
+    await page.locator('#graphType').selectOption('type');
+    assert.deepEqual(await percent(), [null, null, 50, null, null]);
+    assert.equal(await page.locator('#graphCapacityStatus').isVisible(), true);
+    assert.equal(await page.locator('#summaryChart').evaluate(canvas => Chart.getChart(canvas).options.scales.y2.display), true);
+    backend.db.black_garlic_entries.push(entry('empty-type', '2026-09-12', 'room', 'type-2', 0));
+    await openGraph();
+    await page.locator('#graphType').selectOption('type-2');
+    assert.deepEqual(await percent(), [null, 30, 30, null, null]);
+    backend.db.black_garlic_harvest_lots.push({ id: 'lot-2', lot_name: 'Second lot', harvest_date: '2026-01-01', active: true });
+    backend.db.black_garlic_entries.push({ ...entry('other-lot', '2026-09-10', 'room', 'type-2', 2), harvest_lot_id: 'lot-2' });
+    await openGraph();
+    await page.locator('#graphType').selectOption('type-2');
+    assert.deepEqual(await percent(), [null, 50, 50, 20, 20]);
+    assert.deepEqual(await page.locator('#summaryChart').evaluate(canvas => Chart.getChart(canvas).data.datasets[2].data), [0, 5, 5, 2, 2]);
+    assert.equal(backend.writes.length, 0);
     backend.db.black_garlic_rooms.forEach(room => { room.active = false; });
     await openGraph();
     assert.deepEqual(await percent(), [null, null, null, null, null]);

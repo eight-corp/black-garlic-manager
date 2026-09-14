@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>黒にんにく管理</title>
-  <link rel="stylesheet" href="./styles.css?v=20260914-storage-graph">
+  <link rel="stylesheet" href="./styles.css?v=20260914-graph-series">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -164,6 +164,7 @@
           <label class="graph-in-series"><span class="graph-series-label"><span class="graph-series-swatch" aria-hidden="true"></span>入庫</span><select id="graphInType"><option value="line">折れ線</option><option value="bar" selected>棒グラフ</option></select></label>
           <label class="graph-out-series"><span class="graph-series-label"><span class="graph-series-swatch" aria-hidden="true"></span>出庫</span><select id="graphOutType"><option value="line">折れ線</option><option value="bar" selected>棒グラフ</option></select></label>
           <label class="graph-inventory-series"><span class="graph-series-label"><span class="graph-series-swatch" aria-hidden="true"></span>在庫</span><select id="graphInventoryType"><option value="line">折れ線</option><option value="bar">棒グラフ</option></select></label>
+          <label class="graph-capacity-series"><span class="graph-series-label"><span class="graph-series-swatch" aria-hidden="true"></span>収容率</span><select id="graphCapacityType"><option value="line">折れ線</option><option value="bar">棒グラフ</option></select></label>
         </div>
         <p id="graphCapacityStatus" class="graph-capacity-status" role="status" hidden></p>
         <div class="chart-box"><canvas id="summaryChart" role="img" aria-label="入庫・出庫・在庫・全室収容率の推移"></canvas></div>
@@ -171,15 +172,29 @@
       <div id="storageGraphSummary" class="summary-view graph-view">
         <h2 id="storageGraphPrintTitle" class="print-title storage-graph-print-title"></h2>
         <div class="storage-graph-toolbar">
-          <div class="summary-controls actual-graph-filters">
-            <label>保管種別<span class="graph-select-input"><select id="storageGraphType"></select><i data-lucide="chevron-down" aria-hidden="true"></i></span></label>
-            <label>表示形式<span class="graph-select-input"><select id="storageGraphStyle"><option value="line">折れ線</option><option value="bar">棒</option></select><i data-lucide="chevron-down" aria-hidden="true"></i></span></label>
-          </div>
           <div class="summary-controls graph-controls">
             <label>開始日<span class="graph-date-input"><input id="storageGraphStartDate" type="date"><span class="graph-date-display" aria-hidden="true"><span id="storageGraphStartDateText"></span><i data-lucide="calendar"></i></span></span></label>
             <label>終了日<span class="graph-date-input"><input id="storageGraphEndDate" type="date"><span class="graph-date-display" aria-hidden="true"><span id="storageGraphEndDateText"></span><i data-lucide="calendar"></i></span></span></label>
             <button id="storageGraphRefreshBtn" type="button" class="icon-btn" title="更新" aria-label="更新"><i data-lucide="refresh-cw"></i></button>
             <button id="storageGraphFullscreenBtn" type="button" class="icon-btn secondary" title="全画面表示" aria-label="全画面表示"><i data-lucide="maximize-2"></i></button>
+          </div>
+        </div>
+        <div class="graph-series-controls storage-graph-series-controls">
+          <div class="storage-series-1">
+            <label class="storage-graph-series-kind"><span class="graph-series-swatch" aria-hidden="true"></span><select id="storageGraphType" aria-label="保管種別1 全体固定" disabled><option value="All">全体</option></select></label>
+            <select id="storageGraphStyle" aria-label="全体の表示形式"><option value="line">折れ線</option><option value="bar">棒</option></select>
+          </div>
+          <div class="storage-series-2">
+            <label class="storage-graph-series-kind"><span class="graph-series-swatch" aria-hidden="true"></span><select id="storageGraphType2" aria-label="保管種別2"></select><i data-lucide="chevron-down" aria-hidden="true"></i></label>
+            <select id="storageGraphStyle2" aria-label="系列2の表示形式"><option value="line">折れ線</option><option value="bar">棒</option></select>
+          </div>
+          <div class="storage-series-3">
+            <label class="storage-graph-series-kind"><span class="graph-series-swatch" aria-hidden="true"></span><select id="storageGraphType3" aria-label="保管種別3"></select><i data-lucide="chevron-down" aria-hidden="true"></i></label>
+            <select id="storageGraphStyle3" aria-label="系列3の表示形式"><option value="line">折れ線</option><option value="bar">棒</option></select>
+          </div>
+          <div class="storage-series-4">
+            <label class="storage-graph-series-kind"><span class="graph-series-swatch" aria-hidden="true"></span><select id="storageGraphType4" aria-label="保管種別4"></select><i data-lucide="chevron-down" aria-hidden="true"></i></label>
+            <select id="storageGraphStyle4" aria-label="系列4の表示形式"><option value="line">折れ線</option><option value="bar">棒</option></select>
           </div>
         </div>
         <p id="storageGraphStatus" class="graph-capacity-status" role="status" hidden></p>
@@ -235,6 +250,6 @@
 
   <dialog id="graphFullscreenDialog" class="graph-fullscreen-dialog" aria-label="入出庫・在庫グラフの全画面表示"></dialog>
   <div id="toast" class="toast hidden"></div>
-  <script src="./app.js?v=20260914-storage-graph"></script>
+  <script src="./app.js?v=20260914-graph-series"></script>
 </body>
 </html>

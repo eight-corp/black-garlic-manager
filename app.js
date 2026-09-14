@@ -26,6 +26,13 @@
 
   const compactGraphDateFormat = new Intl.DateTimeFormat("ja-JP", { year: "2-digit", month: "2-digit", day: "2-digit" });
 
+  const STORAGE_GRAPH_SERIES = [
+    { typeInput: "storageGraphType", styleInput: "storageGraphStyle", color: "#28a745", background: "rgba(40,167,69,.45)", fixed: true },
+    { typeInput: "storageGraphType2", styleInput: "storageGraphStyle2", color: "#007bff", background: "rgba(0,123,255,.45)" },
+    { typeInput: "storageGraphType3", styleInput: "storageGraphStyle3", color: "#d9534f", background: "rgba(217,83,79,.45)" },
+    { typeInput: "storageGraphType4", styleInput: "storageGraphStyle4", color: "#d89a00", background: "rgba(216,154,0,.45)" }
+  ];
+
   const state = {
     client: null,
     workerId: "",
@@ -131,10 +138,10 @@
         }
       });
     });
-    ["graphType", "graphRoom", "graphInType", "graphOutType", "graphInventoryType"].forEach(id => {
+    ["graphType", "graphRoom", "graphInType", "graphOutType", "graphInventoryType", "graphCapacityType"].forEach(id => {
       $(id).addEventListener("change", renderSummaryGraph);
     });
-    ["storageGraphType", "storageGraphStyle"].forEach(id => {
+    STORAGE_GRAPH_SERIES.flatMap(series => [series.typeInput, series.styleInput]).forEach(id => {
       $(id).addEventListener("change", renderStorageSummaryGraph);
     });
     $("graphFullscreenBtn").addEventListener("click", toggleGraphFullscreen);
@@ -377,7 +384,15 @@
     fillSelect("summaryRoom", activeRows(state.data.rooms), "id", "room_name", "全体");
     fillSelect("graphType", activeRows(state.data.types), "id", "type_name", "全体");
     fillSelect("graphRoom", activeRows(state.data.rooms), "id", "room_name", "全体");
-    fillSelect("storageGraphType", activeRows(state.data.storageTypes), "id", "type_name", "全体");
+    const storageTypes = activeRows(state.data.storageTypes);
+    STORAGE_GRAPH_SERIES.slice(1).forEach((series, index) => {
+      const select = $(series.typeInput);
+      const current = select.value;
+      const initialized = select.dataset.initialized === "true";
+      fillSelect(series.typeInput, [{ id: "", type_name: "非表示" }, ...storageTypes], "id", "type_name");
+      select.value = initialized ? storageTypes.some(type => type.id === current) ? current : "" : storageTypes[index]?.id || "";
+      select.dataset.initialized = "true";
+    });
     fillSelect("predictionType", activeRows(state.data.types), "id", "type_name", "全体");
     fillSelect("predictionRoom", activeRows(state.data.rooms), "id", "room_name", "全体");
     $("avgUsage").value = state.data.settings.prediction && state.data.settings.prediction.avgUsage !== undefined
@@ -1017,31 +1032,41 @@
     const outData = [];
     const inventoryData = [];
     const capacityPercentData = [];
+    const capacityTotals = [];
+    const capacityInventories = [];
+    const capacityIssues = new Set();
     const typeId = $("graphType").value;
     const roomId = $("graphRoom").value;
     const rooms = activeRows(state.data.rooms);
     const capacities = state.data.settings.roomCapacities || {};
-    const missingCapacityRooms = rooms.filter(room =>
-      typeof capacities[room.id] !== "number" || !Number.isFinite(capacities[room.id]) || capacities[room.id] < 0
-    );
-    const totalCapacity = rooms.reduce((total, room) => total + (capacities[room.id] || 0), 0);
-    const capacityReady = rooms.length > 0 && missingCapacityRooms.length === 0 && Number.isFinite(totalCapacity) && totalCapacity > 0;
-    const capacityStatus = $("graphCapacityStatus");
-    capacityStatus.hidden = capacityReady;
-    capacityStatus.textContent = capacityReady ? "" : !rooms.length ? "収容率：表示対象の室がありません" :
-      missingCapacityRooms.length ? `収容率：収容能力が未設定の室があります（${missingCapacityRooms.length}室）` :
-      "収容率：全室の収容能力が0または無効なため計算できません";
+    const allTypes = typeId === "All" || !typeId;
     days.forEach(day => {
       const ymd = dateToStr(day);
       const rows = filterEntries(ymd, ymd, typeId, roomId);
       inData.push(round2(sum(rows, "in_qty")));
       outData.push(round2(sum(rows, "out_qty")));
-      const inventory = inventoryAsOf(ymd, typeId, roomId);
+      const latestRows = latestInventoryEntriesAsOf(ymd, typeId, "All");
+      const inventoryByRoom = new Map();
+      latestRows.forEach(row => inventoryByRoom.set(row.room_id, (inventoryByRoom.get(row.room_id) || 0) + clampNumber(row.inventory_qty)));
+      const allInventory = Array.from(inventoryByRoom.values()).reduce((total, value) => total + value, 0);
+      const inventory = roomId === "All" || !roomId ? allInventory : inventoryByRoom.get(roomId) || 0;
       inventoryData.push(round2(inventory));
-      // Capacity utilization always uses all visible rooms and types, regardless of the graph filters.
-      const allInventory = !capacityReady ? 0 : typeId === "All" && roomId === "All" ? inventory : inventoryAsOf(ymd, "All", "All");
-      capacityPercentData.push(capacityReady ? round2(allInventory / totalCapacity * 100) : null);
+      // A selected type uses only rooms holding its stock on this date; the room filter does not affect utilization.
+      const capacityRooms = allTypes ? rooms : rooms.filter(room => (inventoryByRoom.get(room.id) || 0) > 0);
+      const missing = capacityRooms.some(room => typeof capacities[room.id] !== "number" || !Number.isFinite(capacities[room.id]) || capacities[room.id] < 0);
+      const totalCapacity = missing ? 0 : capacityRooms.reduce((total, room) => total + capacities[room.id], 0);
+      if (missing) capacityIssues.add("収容能力が未設定の室がある日は表示できません");
+      else if (capacityRooms.length && (!Number.isFinite(totalCapacity) || totalCapacity <= 0)) capacityIssues.add("収容能力の合計が0または無効な日は表示できません");
+      const ready = capacityRooms.length > 0 && !missing && Number.isFinite(totalCapacity) && totalCapacity > 0;
+      capacityPercentData.push(ready ? round2(allInventory / totalCapacity * 100) : null);
+      capacityTotals.push(totalCapacity);
+      capacityInventories.push(allInventory);
     });
+    const capacityReady = capacityPercentData.some(value => value !== null);
+    const capacityStatus = $("graphCapacityStatus");
+    capacityStatus.hidden = capacityReady && capacityIssues.size === 0;
+    capacityStatus.textContent = capacityIssues.size ? `収容率：${Array.from(capacityIssues).join("。")}` :
+      capacityReady ? "" : allTypes ? "収容率：表示対象の室がありません" : "収容率：選択した種別の在庫がある室がありません";
 
     const canvas = $("summaryChart");
     if (typeof Chart === "undefined") return;
@@ -1056,7 +1081,8 @@
     };
     options.plugins.tooltip = {
       callbacks: {
-        label: context => `${context.dataset.label}: ${context.formattedValue}${context.dataset.yAxisID === "y2" ? "%" : ""}`
+        label: context => `${context.dataset.label}: ${context.formattedValue}${context.dataset.yAxisID === "y2" ? "%" : ""}`,
+        afterLabel: context => context.dataset.yAxisID === "y2" ? `在庫: ${round2(capacityInventories[context.dataIndex])} / 収容能力: ${round2(capacityTotals[context.dataIndex])}` : ""
       }
     };
     state.charts.summary = new Chart(canvas, {
@@ -1067,7 +1093,7 @@
           { type: $("graphInType").value, label: "入庫", data: inData, borderColor: "#007bff", backgroundColor: "rgba(0,123,255,.45)", tension: .25, yAxisID: "y" },
           { type: $("graphOutType").value, label: "出庫", data: outData, borderColor: "#d9534f", backgroundColor: "rgba(217,83,79,.45)", tension: .25, yAxisID: "y" },
           { type: $("graphInventoryType").value, label: "在庫", data: inventoryData, borderColor: "#28a745", backgroundColor: "rgba(40,167,69,.45)", tension: .25, yAxisID: "y1" },
-          { type: "line", label: "全室収容率", data: capacityPercentData, borderColor: "#000000", backgroundColor: "#000000", borderWidth: 2, pointRadius: 1.5, tension: 0, yAxisID: "y2", order: -1 }
+          { type: $("graphCapacityType").value, label: allTypes ? "全室収容率" : `収容率（${state.data.types.find(type => type.id === typeId)?.type_name || "選択種別"}）`, data: capacityPercentData, borderColor: "#000000", backgroundColor: "#000000", borderWidth: 2, pointRadius: 1.5, tension: 0, yAxisID: "y2", order: -1 }
         ]
       },
       options
@@ -1079,41 +1105,51 @@
     const start = $("storageGraphStartDate").value;
     const end = $("storageGraphEndDate").value;
     const days = dateRange(parseYmd(start), parseYmd(end));
-    const typeId = $("storageGraphType").value;
-    const typeName = $("storageGraphType").selectedOptions[0]?.textContent || "全体";
-    $("storageGraphPrintTitle").textContent = `グラフ(保管庫) ${typeName} ${start}〜${end}`;
+    const series = STORAGE_GRAPH_SERIES.map(slot => ({
+      ...slot, typeId: slot.fixed ? "All" : $(slot.typeInput).value,
+      label: slot.fixed ? "全体" : $(slot.typeInput).selectedOptions[0]?.textContent || "",
+      data: []
+    })).filter(slot => slot.fixed || slot.typeId);
+    $("storageGraphPrintTitle").textContent = `グラフ(保管庫) ${series.map(slot => slot.label).join("・")} ${start}〜${end}`;
     const today = todayStr();
     const rows = state.data.storageEntries
-      .filter(row => isVisibleStorageEntry(row) && (typeId === "All" || !typeId || row.storage_type_id === typeId))
+      .filter(isVisibleStorageEntry)
       .sort((a, b) => compareDisplay(a.storage_date, b.storage_date) || compareDisplay(a.recorded_at, b.recorded_at));
     const latestByType = new Map();
     let index = 0;
-    const data = days.map(day => {
+    days.forEach(day => {
       const ymd = dateToStr(day);
-      if (ymd > today) return null;
-      while (index < rows.length && rows[index].storage_date <= ymd) {
+      while (ymd <= today && index < rows.length && rows[index].storage_date <= ymd) {
         const row = rows[index++];
         latestByType.set(row.storage_type_id, row);
       }
-      return latestByType.size ? round2(Array.from(latestByType.values()).reduce((total, row) => total + storageColumns(row), 0)) : null;
+      const total = round2(Array.from(latestByType.values()).reduce((value, row) => value + storageColumns(row), 0));
+      series.forEach(slot => {
+        const row = latestByType.get(slot.typeId);
+        const value = slot.fixed ? latestByType.size ? total : null : row ? round2(storageColumns(row)) : null;
+        slot.data.push(ymd > today ? null : value);
+      });
     });
     const status = $("storageGraphStatus");
-    status.hidden = data.some(value => value !== null);
+    status.hidden = series.some(slot => slot.data.some(value => value !== null));
     status.textContent = status.hidden ? "" : "表示期間に保管数のデータがありません";
     if (typeof Chart === "undefined") return;
     if (state.charts.storageSummary) state.charts.storageSummary.destroy();
     state.charts.storageSummary = new Chart($("storageSummaryChart"), {
-      type: $("storageGraphStyle").value,
+      type: "line",
       data: {
         labels: days.map(day => fmtShortDate(dateToStr(day))),
-        datasets: [{ label: "保管数(列)", data, borderColor: "#28a745", backgroundColor: "rgba(40,167,69,.45)", tension: 0 }]
+        datasets: series.map(slot => ({
+          type: $(slot.styleInput).value, label: slot.label, data: slot.data,
+          borderColor: slot.color, backgroundColor: slot.background, tension: 0
+        }))
       },
       options: {
         responsive: true, maintainAspectRatio: false, animation: false,
         interaction: { mode: "index", intersect: false },
         plugins: {
           legend: { position: "bottom" },
-          tooltip: { callbacks: { label: context => `保管数: ${context.formattedValue}列` } }
+          tooltip: { callbacks: { label: context => `${context.dataset.label}: ${context.formattedValue}列` } }
         },
         scales: { y: { beginAtZero: true, title: { display: true, text: "保管数(列)" } } }
       }
@@ -1727,14 +1763,18 @@
   }
 
   function inventoryAsOf(ymd, typeId, roomId) {
+    return latestInventoryEntriesAsOf(ymd, typeId, roomId).reduce((total, row) => total + clampNumber(row.inventory_qty), 0);
+  }
+
+  function latestInventoryEntriesAsOf(ymd, typeId, roomId) {
     const map = new Map();
     state.data.entries
       .filter(row => row.entry_date <= ymd && matchesFilters(row, typeId, roomId))
       .sort((a, b) => compareDisplay(a.entry_date, b.entry_date) || compareDisplay(a.recorded_at, b.recorded_at))
       .forEach(row => {
-        map.set(`${row.room_id}|${row.type_id}|${row.harvest_lot_id}`, clampNumber(row.inventory_qty));
+        map.set(`${row.room_id}|${row.type_id}|${row.harvest_lot_id}`, row);
       });
-    return Array.from(map.values()).reduce((sumValue, value) => sumValue + value, 0);
+    return Array.from(map.values());
   }
 
   function latestStorageTotal(date, typeId, exactDate) {

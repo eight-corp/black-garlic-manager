@@ -541,21 +541,21 @@ async function run() {
     assert.equal(await graph.page.locator('.main-summary-controls').isVisible(), false);
     assert.equal(await graph.page.locator('#summaryGraph').isVisible(), true);
     assert.equal(await graph.page.locator('#forecastGraphs').isVisible(), false);
-    assert.deepEqual(await graph.page.locator('.graph-series-controls select').evaluateAll(selects => selects.map(select => select.value)), ['bar', 'bar', 'line']);
+    assert.deepEqual(await graph.page.locator('#summaryGraph .graph-series-controls select').evaluateAll(selects => selects.map(select => select.value)), ['bar', 'bar', 'line', 'line']);
     assert.deepEqual(await graph.page.locator('#summaryChart').evaluate(canvas => Chart.getChart(canvas).data.datasets.map((dataset, index) => Chart.getChart(canvas).getDatasetMeta(index).type)), ['bar', 'bar', 'line', 'line']);
     await graph.page.locator('#graphStartDate').fill('2026-09-10');
     await graph.page.locator('#graphEndDate').fill('2026-09-12');
     await graph.page.locator('#graphRefreshBtn').click();
     const graphReads = graph.backend.reads.length;
-    for (let combination = 0; combination < 8; combination++) {
-      const types = ['graphInType', 'graphOutType', 'graphInventoryType'].map((id, index) => combination & (1 << index) ? 'bar' : 'line');
-      for (const [index, id] of ['graphInType', 'graphOutType', 'graphInventoryType'].entries()) await graph.page.locator('#' + id).selectOption(types[index]);
+    for (let combination = 0; combination < 16; combination++) {
+      const types = ['graphInType', 'graphOutType', 'graphInventoryType', 'graphCapacityType'].map((id, index) => combination & (1 << index) ? 'bar' : 'line');
+      for (const [index, id] of ['graphInType', 'graphOutType', 'graphInventoryType', 'graphCapacityType'].entries()) await graph.page.locator('#' + id).selectOption(types[index]);
       const actual = await graph.page.locator('#summaryChart').evaluate(canvas => {
         const chart = Chart.getChart(canvas);
         return { types: chart.data.datasets.map(dataset => dataset.type), controllers: chart.data.datasets.map((dataset, index) => chart.getDatasetMeta(index).type), data: chart.data.datasets.map(dataset => dataset.data), colors: chart.data.datasets.map(dataset => dataset.borderColor), axes: chart.data.datasets.map(dataset => dataset.yAxisID), inventoryAxisPosition: chart.options.scales.y1.position };
       });
-      assert.deepEqual(actual.types, [...types, 'line']);
-      assert.deepEqual(actual.controllers, [...types, 'line']);
+      assert.deepEqual(actual.types, types);
+      assert.deepEqual(actual.controllers, types);
       assert.deepEqual(actual.data, [[0, 10, 0], [0, 2, 0], [0, 8, 8], [null, null, null]]);
       assert.deepEqual(actual.colors, ['#007bff', '#d9534f', '#28a745', '#000000']);
       assert.deepEqual(actual.axes, ['y', 'y', 'y1', 'y2']);
@@ -569,7 +569,7 @@ async function run() {
         return bounds.width >= innerWidth - 20 && bounds.width <= innerWidth && bounds.height > 200 && bounds.bottom <= document.querySelector('.summary-bottom-tabs').getBoundingClientRect().top + 1 && document.documentElement.scrollWidth <= innerWidth;
       });
       assert.ok(await graph.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-      assert.ok(await graph.page.locator('.graph-series-controls').evaluate(element => [...element.querySelectorAll('select')].every(select => select.scrollWidth <= select.clientWidth)));
+      assert.ok(await graph.page.locator('#summaryGraph .graph-series-controls').evaluate(element => [...element.querySelectorAll('select')].every(select => select.scrollWidth <= select.clientWidth)));
       if (artifacts) await graph.page.screenshot({ path: path.join(artifacts, 'graph-viewport-bars-' + width + '.png'), fullPage: true });
       await graph.page.locator('#graphFullscreenBtn').click();
       await graph.page.waitForFunction(() => {
@@ -613,7 +613,7 @@ async function run() {
     assert.equal(await graph.page.evaluate(() => document.body.classList.contains('graphs-active')), false);
     await assertTwoWeeklyTables(graph.page, '2026-09-07');
     await graph.page.locator('[data-tab="prediction"]').click();
-    assert.deepEqual(await graph.page.locator('.graph-series-controls select').evaluateAll(selects => selects.map(select => select.value)), ['bar', 'bar', 'bar']);
+    assert.deepEqual(await graph.page.locator('#summaryGraph .graph-series-controls select').evaluateAll(selects => selects.map(select => select.value)), ['bar', 'bar', 'bar', 'bar']);
     assert.equal(await graph.page.locator('#summaryGraph').isVisible(), false);
     assert.equal(await graph.page.locator('#predictionChartView').isVisible(), true);
     await graph.page.locator('#predictionStartDate').fill('2026-10-10');
@@ -661,7 +661,7 @@ async function run() {
     await openActualGraph(graph.page);
     assert.equal(await graph.page.locator('#graphStartDate').inputValue(), '2026-09-10');
     assert.equal(await graph.page.locator('#graphEndDate').inputValue(), '2026-09-12');
-    assert.deepEqual(await graph.page.locator('.graph-series-controls select').evaluateAll(selects => selects.map(select => select.value)), ['bar', 'bar', 'bar']);
+    assert.deepEqual(await graph.page.locator('#summaryGraph .graph-series-controls select').evaluateAll(selects => selects.map(select => select.value)), ['bar', 'bar', 'bar', 'bar']);
     await graph.page.locator('#graphFullscreenBtn').click();
     await graph.page.locator('#graphRoom').selectOption('room');
     await graph.page.locator('#graphType').selectOption('type');
@@ -680,7 +680,7 @@ async function run() {
     await graph.page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
     assert.equal(await graph.page.locator('#graphFullscreenDialog').evaluate(dialog => dialog.open), false);
     assert.equal(await graph.page.locator('#summaryPanel #summaryGraph').count(), 1);
-    assert.equal(await graph.page.locator('.graph-series-controls').isVisible(), false);
+    assert.equal(await graph.page.locator('#summaryGraph .graph-series-controls').isVisible(), false);
     assert.ok(await graph.page.locator('#summaryChart').evaluate(canvas => canvas.getBoundingClientRect().height > 400));
     await graph.page.emulateMedia({ media: 'screen' });
     await graph.page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
@@ -689,7 +689,7 @@ async function run() {
     assert.equal(graph.backend.reads.length, graphReads);
     assert.equal(graph.backend.writes.length, 0);
     assert.deepEqual(graph.backend.errors, []);
-    results.graphViewportFullscreenResponsiveEightIndependentLineBarCombinationsGreenStockRightAxisAndNoDatabaseWrites = true;
+    results.graphViewportFullscreenResponsiveSixteenIndependentLineBarCombinationsGreenStockRightAxisAndNoDatabaseWrites = true;
     results.actualGraphReturnedAfterMonthlyForecastSeparatePeriodsFiltersFullscreenPrintAndNoDatabaseWrites = true;
     await graph.context.close();
 
@@ -778,7 +778,7 @@ async function run() {
     results.separateRoomAndStorageSummariesTwoWeeksTotalsHiddenTypesFutureBoundariesResponsivePrintAndNoWrites = await require('./storage-summaries.cjs')(browser, scenario, unlocked, assertTwoWeeklyTables);
     results.compactActualGraphSingleRowDatePickerFullDateLeapAndYearLabelsResponsiveAndNoWrites = await require('./compact-graph.cjs')(browser, scenario, unlocked);
     results.roomCapacitiesDraftSaveReloadRenameReorderZeroBlankDeleteResponsiveAndNoInventoryLimit = await require('./room-capacities.cjs')(browser, scenario, unlocked);
-    results.allRoomCapacityPercentBlackIndependentAxisFiltersCarryForwardOver100MissingZeroResponsiveFullscreenAndNoWrites = await require('./capacity-percent.cjs')(browser, scenario, unlocked);
+    results.typeCapacityPercentDailyOccupiedRoomsBlackIndependentStyleAxisRoomFilterCarryForwardOver100MissingZeroResponsiveFullscreenAndNoWrites = await require('./capacity-percent.cjs')(browser, scenario, unlocked);
     results.fullscreenGraphPortraitLandscapeRotationScopedNativeExitFallbackAndPendingCleanup = await require('./graph-rotation.cjs')(browser, scenario, unlocked);
     results.storageGraphSnapshotsTotalsStorageTypeFiltersIndependentPeriodsStylesMissingFutureResponsiveRefreshPrintAndNoWrites = await require('./storage-graph.cjs')(browser, scenario, unlocked);
     results.storageFullscreenRotationNativeExitFallbackAndPendingCleanup = await require('./graph-rotation.cjs')(browser, scenario, unlocked, 'storageGraph');
