@@ -521,7 +521,7 @@ async function run() {
     ]) {
       await rooms.page.locator('#graphType').selectOption(type);
       await rooms.page.locator('#graphRoom').selectOption(room);
-      assert.deepEqual(await rooms.page.locator('#summaryChart').evaluate(canvas => Chart.getChart(canvas).data.datasets.map(dataset => dataset.data[0])), values);
+      assert.deepEqual(await rooms.page.locator('#summaryChart').evaluate(canvas => Chart.getChart(canvas).data.datasets.slice(0, 3).map(dataset => dataset.data[0])), values);
     }
     assert.equal(await rooms.page.locator('#summaryType').inputValue(), 'All');
     assert.equal(await rooms.page.locator('#summaryRoom').inputValue(), 'All');
@@ -542,7 +542,7 @@ async function run() {
     assert.equal(await graph.page.locator('#summaryGraph').isVisible(), true);
     assert.equal(await graph.page.locator('#forecastGraphs').isVisible(), false);
     assert.deepEqual(await graph.page.locator('.graph-series-controls select').evaluateAll(selects => selects.map(select => select.value)), ['bar', 'bar', 'line']);
-    assert.deepEqual(await graph.page.locator('#summaryChart').evaluate(canvas => Chart.getChart(canvas).data.datasets.map((dataset, index) => Chart.getChart(canvas).getDatasetMeta(index).type)), ['bar', 'bar', 'line']);
+    assert.deepEqual(await graph.page.locator('#summaryChart').evaluate(canvas => Chart.getChart(canvas).data.datasets.map((dataset, index) => Chart.getChart(canvas).getDatasetMeta(index).type)), ['bar', 'bar', 'line', 'line']);
     await graph.page.locator('#graphStartDate').fill('2026-09-10');
     await graph.page.locator('#graphEndDate').fill('2026-09-12');
     await graph.page.locator('#graphRefreshBtn').click();
@@ -554,11 +554,11 @@ async function run() {
         const chart = Chart.getChart(canvas);
         return { types: chart.data.datasets.map(dataset => dataset.type), controllers: chart.data.datasets.map((dataset, index) => chart.getDatasetMeta(index).type), data: chart.data.datasets.map(dataset => dataset.data), colors: chart.data.datasets.map(dataset => dataset.borderColor), axes: chart.data.datasets.map(dataset => dataset.yAxisID), inventoryAxisPosition: chart.options.scales.y1.position };
       });
-      assert.deepEqual(actual.types, types);
-      assert.deepEqual(actual.controllers, types);
-      assert.deepEqual(actual.data, [[0, 10, 0], [0, 2, 0], [0, 8, 8]]);
-      assert.deepEqual(actual.colors, ['#007bff', '#d9534f', '#28a745']);
-      assert.deepEqual(actual.axes, ['y', 'y', 'y1']);
+      assert.deepEqual(actual.types, [...types, 'line']);
+      assert.deepEqual(actual.controllers, [...types, 'line']);
+      assert.deepEqual(actual.data, [[0, 10, 0], [0, 2, 0], [0, 8, 8], [null, null, null]]);
+      assert.deepEqual(actual.colors, ['#007bff', '#d9534f', '#28a745', '#000000']);
+      assert.deepEqual(actual.axes, ['y', 'y', 'y1', 'y2']);
       assert.equal(actual.inventoryAxisPosition, 'right');
     }
     for (const [width, height] of [[320, 844], [390, 844], [1280, 844], [1920, 1080]]) {
@@ -778,6 +778,7 @@ async function run() {
     results.separateRoomAndStorageSummariesTwoWeeksTotalsHiddenTypesFutureBoundariesResponsivePrintAndNoWrites = await require('./storage-summaries.cjs')(browser, scenario, unlocked, assertTwoWeeklyTables);
     results.compactActualGraphSingleRowDatePickerFullDateLeapAndYearLabelsResponsiveAndNoWrites = await require('./compact-graph.cjs')(browser, scenario, unlocked);
     results.roomCapacitiesDraftSaveReloadRenameReorderZeroBlankDeleteResponsiveAndNoInventoryLimit = await require('./room-capacities.cjs')(browser, scenario, unlocked);
+    results.allRoomCapacityPercentBlackIndependentAxisFiltersCarryForwardOver100MissingZeroResponsiveFullscreenAndNoWrites = await require('./capacity-percent.cjs')(browser, scenario, unlocked);
     results.fullscreenGraphPortraitLandscapeRotationScopedNativeExitFallbackAndPendingCleanup = await require('./graph-rotation.cjs')(browser, scenario, unlocked);
 
     for (const role of ['operator', 'viewer']) {

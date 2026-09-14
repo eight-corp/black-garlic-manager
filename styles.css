@@ -891,6 +891,15 @@ body.summary-graph-active #summaryMetricControls {
 .graph-out-series .graph-series-swatch { background: var(--out-color); }
 .graph-inventory-series .graph-series-swatch { background: #28a745; }
 
+.graph-capacity-status {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.2;
+  color: var(--warn);
+}
+
+#summaryGraph:has(#graphCapacityStatus:not([hidden])) { gap: 4px; }
+
 #summaryGraph .chart-box,
 #predictionChartView .chart-box {
   flex: 1 1 0;

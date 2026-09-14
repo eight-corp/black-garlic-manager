@@ -65,7 +65,7 @@ async function testGraphRotation(browser, scenario, unlocked) {
           const frame = host.getBoundingClientRect();
           return Math.abs(frame.width - innerWidth) < 1 && Math.abs(frame.height - innerHeight) < 1 && bounds.width >= innerWidth - 20 && bounds.width <= innerWidth && bounds.height > 120 && bounds.bottom <= innerHeight - 7 && host.scrollWidth <= innerWidth;
         }, null, { timeout: 10000 });
-        assert.deepEqual(await page.locator('#summaryChart').evaluate(canvas => Chart.getChart(canvas).data.datasets.map(dataset => dataset.data)), [[0, 10, 0], [0, 2, 0], [0, 8, 8]]);
+        assert.deepEqual(await page.locator('#summaryChart').evaluate(canvas => Chart.getChart(canvas).data.datasets.map(dataset => dataset.data)), [[0, 10, 0], [0, 2, 0], [0, 8, 8], [null, null, null]]);
         assert.ok(await page.locator('#summaryChart').evaluate(canvas => {
           const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
           let colorful = 0;

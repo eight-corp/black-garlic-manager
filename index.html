@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>黒にんにく管理</title>
-  <link rel="stylesheet" href="./styles.css?v=20260914-single-row-masters">
+  <link rel="stylesheet" href="./styles.css?v=20260914-capacity-percent-graph">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -165,7 +165,8 @@
           <label class="graph-out-series"><span class="graph-series-label"><span class="graph-series-swatch" aria-hidden="true"></span>出庫</span><select id="graphOutType"><option value="line">折れ線</option><option value="bar" selected>棒グラフ</option></select></label>
           <label class="graph-inventory-series"><span class="graph-series-label"><span class="graph-series-swatch" aria-hidden="true"></span>在庫</span><select id="graphInventoryType"><option value="line">折れ線</option><option value="bar">棒グラフ</option></select></label>
         </div>
-        <div class="chart-box"><canvas id="summaryChart" role="img" aria-label="入庫・出庫・在庫の推移"></canvas></div>
+        <p id="graphCapacityStatus" class="graph-capacity-status" role="status" hidden></p>
+        <div class="chart-box"><canvas id="summaryChart" role="img" aria-label="入庫・出庫・在庫・全室収容率の推移"></canvas></div>
       </div>
       <nav class="sub-tabs summary-bottom-tabs" aria-label="集計表示の切り替え">
         <button type="button" class="sub-tab active" data-summary-view="weekly">週毎<span>(室)</span></button>
@@ -216,6 +217,6 @@
 
   <dialog id="graphFullscreenDialog" class="graph-fullscreen-dialog" aria-label="入出庫・在庫グラフの全画面表示"></dialog>
   <div id="toast" class="toast hidden"></div>
-  <script src="./app.js?v=20260914-single-row-masters"></script>
+  <script src="./app.js?v=20260914-capacity-percent-graph"></script>
 </body>
 </html>

@@ -999,19 +999,49 @@
     const inData = [];
     const outData = [];
     const inventoryData = [];
+    const capacityPercentData = [];
     const typeId = $("graphType").value;
     const roomId = $("graphRoom").value;
+    const rooms = activeRows(state.data.rooms);
+    const capacities = state.data.settings.roomCapacities || {};
+    const missingCapacityRooms = rooms.filter(room =>
+      typeof capacities[room.id] !== "number" || !Number.isFinite(capacities[room.id]) || capacities[room.id] < 0
+    );
+    const totalCapacity = rooms.reduce((total, room) => total + (capacities[room.id] || 0), 0);
+    const capacityReady = rooms.length > 0 && missingCapacityRooms.length === 0 && Number.isFinite(totalCapacity) && totalCapacity > 0;
+    const capacityStatus = $("graphCapacityStatus");
+    capacityStatus.hidden = capacityReady;
+    capacityStatus.textContent = capacityReady ? "" : !rooms.length ? "収容率：表示対象の室がありません" :
+      missingCapacityRooms.length ? `収容率：収容能力が未設定の室があります（${missingCapacityRooms.length}室）` :
+      "収容率：全室の収容能力が0または無効なため計算できません";
     days.forEach(day => {
       const ymd = dateToStr(day);
       const rows = filterEntries(ymd, ymd, typeId, roomId);
       inData.push(round2(sum(rows, "in_qty")));
       outData.push(round2(sum(rows, "out_qty")));
-      inventoryData.push(round2(inventoryAsOf(ymd, typeId, roomId)));
+      const inventory = inventoryAsOf(ymd, typeId, roomId);
+      inventoryData.push(round2(inventory));
+      // Capacity utilization always uses all visible rooms and types, regardless of the graph filters.
+      const allInventory = !capacityReady ? 0 : typeId === "All" && roomId === "All" ? inventory : inventoryAsOf(ymd, "All", "All");
+      capacityPercentData.push(capacityReady ? round2(allInventory / totalCapacity * 100) : null);
     });
 
     const canvas = $("summaryChart");
     if (typeof Chart === "undefined") return;
     if (state.charts.summary) state.charts.summary.destroy();
+    const options = chartOptions("数量", "在庫");
+    options.animation = false;
+    options.scales.y2 = {
+      display: capacityReady, beginAtZero: true, suggestedMax: 100, position: "right",
+      grid: { drawOnChartArea: false },
+      title: { display: true, text: "収容率(%)", color: "#000000" },
+      ticks: { color: "#000000", callback: value => `${value}%` }
+    };
+    options.plugins.tooltip = {
+      callbacks: {
+        label: context => `${context.dataset.label}: ${context.formattedValue}${context.dataset.yAxisID === "y2" ? "%" : ""}`
+      }
+    };
     state.charts.summary = new Chart(canvas, {
       type: "line",
       data: {
@@ -1019,10 +1049,11 @@
         datasets: [
           { type: $("graphInType").value, label: "入庫", data: inData, borderColor: "#007bff", backgroundColor: "rgba(0,123,255,.45)", tension: .25, yAxisID: "y" },
           { type: $("graphOutType").value, label: "出庫", data: outData, borderColor: "#d9534f", backgroundColor: "rgba(217,83,79,.45)", tension: .25, yAxisID: "y" },
-          { type: $("graphInventoryType").value, label: "在庫", data: inventoryData, borderColor: "#28a745", backgroundColor: "rgba(40,167,69,.45)", tension: .25, yAxisID: "y1" }
+          { type: $("graphInventoryType").value, label: "在庫", data: inventoryData, borderColor: "#28a745", backgroundColor: "rgba(40,167,69,.45)", tension: .25, yAxisID: "y1" },
+          { type: "line", label: "全室収容率", data: capacityPercentData, borderColor: "#000000", backgroundColor: "#000000", borderWidth: 2, pointRadius: 1.5, tension: 0, yAxisID: "y2", order: -1 }
         ]
       },
-      options: { ...chartOptions("数量", "在庫"), animation: false }
+      options
     });
   }
 
