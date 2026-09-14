@@ -129,6 +129,7 @@
     $("graphRefreshBtn").addEventListener("click", renderSummaryGraph);
     $("storageGraphRefreshBtn").addEventListener("click", renderStorageSummaryGraph);
     $("storageGraphMode").addEventListener("change", renderStorageSummaryGraph);
+    ["predictionPredStyle", "predictionActualStyle"].forEach(id => $(id).addEventListener("change", renderPrediction));
     ["graphStartDate", "graphEndDate", "storageGraphStartDate", "storageGraphEndDate"].forEach(id => {
       $(id).addEventListener("input", updateCompactGraphDates);
       $(id).addEventListener("change", updateCompactGraphDates);
@@ -275,7 +276,6 @@
     $("currentWorker").textContent = state.session.workerName;
     $("currentRole").textContent = roleNames[state.session.permissions[APP_ID]];
     ["mainForm", "storageForm"].forEach(id => $(id).classList.toggle("hidden", !can("operator")));
-    $("avgUsage").readOnly = !can("operator");
     $$(".row-delete-btn").forEach(button => button.disabled = !can("operator") || button.dataset.busy === "true");
     $("masterSaveBtn").disabled = !can("admin") || $("masterSaveBtn").dataset.busy === "true";
     document.querySelector('[data-tab="master"]').classList.toggle("hidden", !can("admin"));
@@ -397,9 +397,6 @@
     });
     fillSelect("predictionType", activeRows(state.data.types), "id", "type_name", "全体");
     fillSelect("predictionRoom", activeRows(state.data.rooms), "id", "room_name", "全体");
-    $("avgUsage").value = state.data.settings.prediction && state.data.settings.prediction.avgUsage !== undefined
-      ? state.data.settings.prediction.avgUsage
-      : 0;
   }
 
   function fillSelect(id, rows, valueKey, labelKey, allLabel) {
@@ -1129,33 +1126,27 @@
   async function refreshPrediction() {
     await withBusy($("predictionRefreshBtn"), async () => {
       await requireSession();
-      if (can("operator")) await savePredictionSettings();
       renderPrediction();
     });
   }
 
-  async function savePredictionSettings() {
-    const value = { avgUsage: clampNumber($("avgUsage").value) };
-    await assertOk(state.client.from(TABLES.settings).upsert({
-      setting_key: "prediction",
-      setting_value: value
-    }));
-    state.data.settings.prediction = value;
-  }
-
   function renderPrediction() {
     const pred = buildPrediction();
-    $("predictionTable").innerHTML = tableHtml(
-      ["日付", "予測出庫数", "実出庫数", "保管列換算", "予測保管数"],
-      pred.rows.map(row => [
-        fmtDate(row.date),
-        num(row.pred),
-        num(row.actual),
-        num(row.predColumns),
-        num(row.forecastStorage)
-      ]),
-      [0]
-    );
+    const months = [...new Set(pred.rows.map(row => row.date.slice(0, 7)))];
+    $("predictionTable").innerHTML = months.map(month => {
+      const body = pred.rows.filter(row => row.date.startsWith(month)).map(row => {
+        const date = parseYmd(row.date);
+        return `<tr data-prediction-date="${esc(row.date)}"${row.date === todayStr() ? ' class="prediction-today"' : ""}>
+          <td class="${date.getDay() === 0 ? "sun-date" : ""}">${date.getDate()}(${weekdayLabel(row.date).charAt(0)})</td>
+          ${pred.rooms.map(room => {
+            const values = row.rooms[room.id] || { pred: 0, actual: 0 };
+            return twoLineCell(values.pred ? num(values.pred) : "", values.actual ? num(values.actual) : "", "in-cell", "out-cell");
+          }).join("")}
+          ${twoLineCell(row.pred ? num(row.pred) : "", row.actual ? num(row.actual) : "", "in-cell", "out-cell", "total-col")}
+        </tr>`;
+      }).join("");
+      return `<section class="prediction-month"><h3>${esc(month)} 予測表</h3>${matrixTableHtml(["日", ...pred.rooms.map(room => room.room_name), "合計"], body)}</section>`;
+    }).join("");
     renderPredictionChart(pred);
     fitResponsiveTables($("predictionPanel"));
   }
@@ -1165,16 +1156,19 @@
     const end = $("predictionEndDate").value;
     const typeId = $("predictionType").value;
     const roomId = $("predictionRoom").value;
-    const avgUsage = clampNumber($("avgUsage").value);
+    const rooms = activeRows(state.data.rooms).filter(room => roomId === "All" || !roomId || room.id === roomId);
     const map = new Map(dateRange(parseYmd(start), parseYmd(end)).map(day => {
       const ymd = dateToStr(day);
-      return [ymd, { date: ymd, pred: 0, actual: 0, predColumns: 0, forecastStorage: 0 }];
+      return [ymd, { date: ymd, pred: 0, actual: 0, rooms: {} }];
     }));
 
     state.data.entries.forEach(row => {
       if (!matchesFilters(row, typeId, roomId)) return;
       if (row.entry_date >= start && row.entry_date <= end && map.has(row.entry_date)) {
-        map.get(row.entry_date).actual += clampNumber(row.out_qty);
+        const item = map.get(row.entry_date);
+        item.actual += clampNumber(row.out_qty);
+        const room = item.rooms[row.room_id] ||= { pred: 0, actual: 0 };
+        room.actual += clampNumber(row.out_qty);
       }
       if (clampNumber(row.in_qty) > 0) {
         const days = maturationDays(row);
@@ -1182,27 +1176,17 @@
         if (pDate >= start && pDate <= end && map.has(pDate)) {
           const item = map.get(pDate);
           item.pred += clampNumber(row.in_qty);
-          item.predColumns += clampNumber(row.in_qty) / 32;
+          const room = item.rooms[row.room_id] ||= { pred: 0, actual: 0 };
+          room.pred += clampNumber(row.in_qty);
         }
       }
     });
 
-    let storage = latestStorageTotal(addDays(parseYmd(start), -1), typeId).total;
-    map.forEach(item => {
-      const actual = latestStorageTotal(parseYmd(item.date), typeId, item.date);
-      if (actual.hasActualOnDate) storage = actual.total;
-      storage += item.predColumns;
-      if (new Date(`${item.date}T00:00:00`).getDay() !== 0) storage -= avgUsage;
-      storage = Math.max(0, storage);
-      item.forecastStorage = storage;
-    });
-
-    return { rows: Array.from(map.values()).map(row => ({
+    return { rooms, rows: Array.from(map.values()).map(row => ({
       date: row.date,
       pred: round2(row.pred),
       actual: round2(row.actual),
-      predColumns: round2(row.predColumns),
-      forecastStorage: round2(row.forecastStorage)
+      rooms: Object.fromEntries(Object.entries(row.rooms).map(([id, values]) => [id, { pred: round2(values.pred), actual: round2(values.actual) }]))
     })) };
   }
 
@@ -1210,17 +1194,19 @@
     const canvas = $("predictionChart");
     if (typeof Chart === "undefined") return;
     if (state.charts.prediction) state.charts.prediction.destroy();
+    const options = chartOptions("出庫数", "");
+    delete options.scales.y1;
+    options.animation = false;
     state.charts.prediction = new Chart(canvas, {
       type: "line",
       data: {
         labels: pred.rows.map(row => fmtShortDate(row.date)),
         datasets: [
-          { type: "bar", label: "予測出庫数", data: pred.rows.map(row => row.pred), backgroundColor: "rgba(217,83,79,.28)", borderColor: "#d9534f", yAxisID: "y" },
-          { type: "bar", label: "実出庫数", data: pred.rows.map(row => row.actual), backgroundColor: "rgba(217,83,79,.28)", borderColor: "#d9534f", yAxisID: "y" },
-          { label: "予測保管数", data: pred.rows.map(row => row.forecastStorage), borderColor: "#dc2626", backgroundColor: "rgba(220,38,38,.12)", tension: .25, yAxisID: "y1" }
+          { type: $("predictionPredStyle").value, label: "予測出庫数", data: pred.rows.map(row => row.pred), backgroundColor: "rgba(0,123,255,.45)", borderColor: "#007bff", borderWidth: 2, tension: 0, yAxisID: "y" },
+          { type: $("predictionActualStyle").value, label: "実出庫数", data: pred.rows.map(row => row.actual), backgroundColor: "rgba(217,83,79,.45)", borderColor: "#d9534f", borderWidth: 2, tension: 0, yAxisID: "y" }
         ]
       },
-      options: chartOptions("出庫数", "保管列")
+      options
     });
   }
 
@@ -1745,28 +1731,6 @@
         map.set(`${row.room_id}|${row.type_id}|${row.harvest_lot_id}`, row);
       });
     return Array.from(map.values());
-  }
-
-  function latestStorageTotal(date, typeId, exactDate) {
-    const ymd = typeof date === "string" ? date : dateToStr(date);
-    const byType = new Map();
-    state.data.storageEntries
-      .filter(row => row.storage_date <= ymd)
-      .filter(isVisibleStorageEntry)
-      .filter(row => {
-        if (typeId === "All" || !typeId) return true;
-        if (!isActiveMasterRow(state.data.types, typeId)) return false;
-        const mainType = state.data.types.find(type => type.id === typeId);
-        const storageType = state.data.storageTypes.find(type => type.id === row.storage_type_id);
-        return mainType && storageType && mainType.type_name === storageType.type_name;
-      })
-      .sort((a, b) => compareDisplay(a.storage_date, b.storage_date) || compareDisplay(a.recorded_at, b.recorded_at))
-      .forEach(row => byType.set(row.storage_type_id, row));
-    const rows = Array.from(byType.values());
-    return {
-      total: rows.reduce((total, row) => total + storageColumns(row), 0),
-      hasActualOnDate: exactDate ? rows.some(row => row.storage_date === exactDate) : false
-    };
   }
 
   function storageColumns(row) {

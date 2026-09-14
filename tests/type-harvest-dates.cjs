@@ -73,7 +73,7 @@ async function testTypeHarvestDates(browser, scenario, unlocked) {
     await page.locator('#predictionRoom').selectOption(room);
     await page.locator('[data-tab="main"]').click();
     await page.locator('[data-tab="prediction"]').click();
-    const numbers = await page.locator('#predictionTable tbody tr').evaluateAll(rows => rows.map(row => Number(row.cells[1].textContent.replaceAll(',', ''))));
+    const numbers = await page.locator('#predictionTable tbody tr').evaluateAll(rows => rows.map(row => Number(row.querySelector('.total-col .cell-upper').textContent.replaceAll(',', ''))));
     const actual = Object.fromEntries(numbers.flatMap((value, index) => value ? [[day('2026-03-01', index), value]] : []));
     assert.deepEqual(actual, expected);
     assert.deepEqual(await page.evaluate(() => Chart.getChart(document.querySelector('#predictionChart')).data.datasets[0].data), numbers);
@@ -192,7 +192,7 @@ async function testTypeHarvestDates(browser, scenario, unlocked) {
         await legacy.page.locator('#predictionEndDate').fill('2026-10-01');
         await legacy.page.locator('[data-tab="main"]').click();
         await legacy.page.locator('[data-tab="prediction"]').click();
-        const numbers = await legacy.page.locator('#predictionTable tbody tr').evaluateAll(rows => rows.map(row => Number(row.cells[1].textContent.replaceAll(',', ''))));
+        const numbers = await legacy.page.locator('#predictionTable tbody tr').evaluateAll(rows => rows.map(row => Number(row.querySelector('.total-col .cell-upper').textContent.replaceAll(',', ''))));
         assert.equal(numbers[27], 10);
         assert.equal(numbers.reduce((total, number) => total + number, 0), 10);
         return numbers;

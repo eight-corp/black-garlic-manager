@@ -402,7 +402,7 @@ async function run() {
     await app.locator('#predictionRefreshBtn').waitFor({ state: 'visible' });
     await app.waitForFunction(() => !document.querySelector('#predictionRefreshBtn').disabled);
     assert.equal(backend.writes.length, beforeViewer);
-    assert.equal(await app.locator('#avgUsage').evaluate(input => input.readOnly), true);
+    assert.equal(await app.locator('#avgUsage').count(), 0);
     backend.role = 'admin';
     await app.locator('#reloadBtn').click();
     await app.waitForFunction(() => !document.querySelector('[data-tab="master"]').classList.contains('hidden'));
@@ -621,7 +621,7 @@ async function run() {
     await openActualGraph(graph.page);
     await graph.page.locator('[data-tab="prediction"]').click();
     assert.deepEqual(await graph.page.locator('#predictionChart').evaluate(canvas => Chart.getChart(canvas).data.datasets[0].data), [0, 10, 0]);
-    assert.deepEqual(await graph.page.locator('#predictionChart').evaluate(canvas => Chart.getChart(canvas).data.datasets[2].data), [4.5, 4.81, 4.81]);
+    assert.equal(await graph.page.locator('#predictionChart').evaluate(canvas => Chart.getChart(canvas).data.datasets.length), 2);
     for (const width of [320, 390, 1280, 1920]) {
       await graph.page.setViewportSize({ width, height: 844 });
       try {
@@ -656,7 +656,7 @@ async function run() {
     assert.equal(await graph.page.locator('#summaryGraph').isVisible(), false);
     assert.equal(await graph.page.evaluate(() => document.body.classList.contains('graph-chart-active')), false);
     assert.equal(await graph.page.locator('#predictionTable tbody tr').count(), 3);
-    assert.equal(await graph.page.locator('#predictionTable tbody tr').nth(1).locator('td').nth(1).textContent(), '10');
+    assert.equal(await graph.page.locator('#predictionTable tbody tr').nth(1).locator('.total-col .cell-upper').textContent(), '10');
     await graph.page.locator('[data-prediction-view="chart"]').click();
     await openActualGraph(graph.page);
     assert.equal(await graph.page.locator('#graphStartDate').inputValue(), '2026-09-10');
@@ -784,6 +784,7 @@ async function run() {
     results.storageFullscreenRotationNativeExitFallbackAndPendingCleanup = await require('./graph-rotation.cjs')(browser, scenario, unlocked, 'storageGraph');
     results.stackedStorageAllRecordedTypesNoTotalExactPiecesFutureEmptyResponsiveAndPredictionBottomNavigation = await require('./stacked-storage.cjs')(browser, scenario, unlocked);
     results.storageGraphModeDatesAndActionsSingleRowMobileDesktopBothModesAndNoWrites = await require('./storage-toolbar.cjs')(browser, scenario, unlocked);
+    results.gasStyleRoomPredictionMonthlyMatrixMaturationFiltersTotalsBlueRedIndependentChartStylesNoStorageAndNoWrites = await require('./prediction-room.cjs')(browser, scenario, unlocked);
 
     for (const role of ['operator', 'viewer']) {
       const test = await scenario(browser, { role });

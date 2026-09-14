@@ -53,11 +53,10 @@ async function testMaturation(browser, scenario, unlocked) {
       return Object.fromEntries([...result].sort(([a], [b]) => a.localeCompare(b)));
     };
     const readForecast = async () => {
-      const rows = await page.locator('#predictionTable tbody tr').evaluateAll(rows => rows.map(row => [...row.cells].map(cell => cell.textContent)));
-      const start = await page.locator('#predictionStartDate').inputValue();
-      return Object.fromEntries(rows.flatMap((cells, index) => {
-        const value = Number(cells[1].replaceAll(',', ''));
-        return value ? [[day(start, index), value]] : [];
+      const rows = await page.locator('#predictionTable tbody tr').evaluateAll(rows => rows.map(row => ({ date: row.dataset.predictionDate, value: row.querySelector('.total-col .cell-upper').textContent })));
+      return Object.fromEntries(rows.flatMap(row => {
+        const value = Number(row.value.replaceAll(',', ''));
+        return value ? [[row.date, value]] : [];
       }));
     };
     const showForecast = async (baseDate, start = '2025-12-25', end = '2026-12-01') => {
@@ -70,7 +69,7 @@ async function testMaturation(browser, scenario, unlocked) {
       await page.locator('[data-tab="prediction"]').click();
       assert.deepEqual(await readForecast(), expected(baseDate));
       const forecast = await page.evaluate(() => Chart.getChart(document.querySelector('#predictionChart')).data.datasets[0].data);
-      const table = await page.locator('#predictionTable tbody tr').evaluateAll(rows => rows.map(row => Number(row.cells[1].textContent.replaceAll(',', ''))));
+      const table = await page.locator('#predictionTable tbody tr').evaluateAll(rows => rows.map(row => Number(row.querySelector('.total-col .cell-upper').textContent.replaceAll(',', ''))));
       assert.deepEqual(forecast, table);
       assert.equal(backend.writes.length, writes);
     };

@@ -840,7 +840,7 @@ body.summary-graph-active #summaryMetricControls {
 }
 
 .summary-controls.prediction-controls {
-  grid-template-columns: repeat(5, minmax(0, 1fr)) 38px;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) 38px;
   gap: 8px;
 }
 
@@ -876,6 +876,12 @@ body.summary-graph-active #summaryMetricControls {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
+
+.prediction-series-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 8px; }
+.prediction-key { display: flex; gap: 16px; font-size: 12px; }
+.prediction-month h3 { margin: 12px 0 6px; font-size: 16px; }
+.prediction-today { outline: 2px solid #ffcc00; outline-offset: -2px; }
+.prediction-today td:not(.total-col) { background: #ffffd0; }
 
 .graph-series-controls select {
   min-height: 36px;

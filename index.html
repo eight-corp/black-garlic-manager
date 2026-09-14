@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>黒にんにく管理</title>
-  <link rel="stylesheet" href="./styles.css?v=20260914-storage-toolbar-row">
+  <link rel="stylesheet" href="./styles.css?v=20260914-room-prediction">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -224,15 +224,18 @@
           <label>終了日<input id="predictionEndDate" type="date"></label>
           <label>種別<select id="predictionType"></select></label>
           <label>室名<select id="predictionRoom"></select></label>
-          <label>日平均使用列数<input id="avgUsage" type="number" step="0.01" min="0" inputmode="decimal"></label>
           <button id="predictionRefreshBtn" type="button" class="icon-btn" title="更新" aria-label="更新"><i data-lucide="refresh-cw"></i></button>
         </div>
-        <p class="hint">在庫数は16枚で1列、端数は枚数です。出庫予測は出庫数2で1枚、16枚で1列として保管列に換算します。日平均使用列数は日曜日を除いて差し引きます。</p>
         <div id="predictionTableView" class="prediction-view">
-          <div id="predictionTable" class="table-wrap"></div>
+          <p class="prediction-key"><span class="in-cell">予測出庫数</span><span class="out-cell">実出庫数</span></p>
+          <div id="predictionTable"></div>
         </div>
         <div id="predictionChartView" class="prediction-view active">
-          <div class="chart-box"><canvas id="predictionChart" role="img" aria-label="出庫予測と保管数の推移"></canvas></div>
+          <div class="graph-series-controls prediction-series-controls">
+            <label class="graph-in-series"><span class="graph-series-label"><span class="graph-series-swatch" aria-hidden="true"></span>予測出庫数</span><select id="predictionPredStyle"><option value="line">折れ線</option><option value="bar" selected>棒グラフ</option></select></label>
+            <label class="graph-out-series"><span class="graph-series-label"><span class="graph-series-swatch" aria-hidden="true"></span>実出庫数</span><select id="predictionActualStyle"><option value="line">折れ線</option><option value="bar" selected>棒グラフ</option></select></label>
+          </div>
+          <div class="chart-box"><canvas id="predictionChart" role="img" aria-label="予測出庫数と実出庫数の推移"></canvas></div>
         </div>
       </div>
       <div class="prediction-bottom-tabs">
@@ -253,6 +256,6 @@
 
   <dialog id="graphFullscreenDialog" class="graph-fullscreen-dialog" aria-label="入出庫・在庫グラフの全画面表示"></dialog>
   <div id="toast" class="toast hidden"></div>
-  <script src="./app.js?v=20260914-storage-toolbar-row"></script>
+  <script src="./app.js?v=20260914-room-prediction"></script>
 </body>
 </html>
