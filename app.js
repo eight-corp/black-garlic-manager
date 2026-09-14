@@ -34,6 +34,8 @@
     { typeInput: "storageGraphType5", styleInput: "storageGraphStyle5", color: "#28a745", background: "rgba(40,167,69,.45)" }
   ];
 
+  const STORAGE_FORECAST_UNIT = { label: "列", divisor: 32, columnsMultiplier: 1 };
+
   const state = {
     client: null,
     workerId: "",
@@ -130,6 +132,7 @@
     $("storageGraphRefreshBtn").addEventListener("click", renderStorageSummaryGraph);
     $("storageGraphMode").addEventListener("change", renderStorageSummaryGraph);
     ["predictionPredStyle", "predictionActualStyle"].forEach(id => $(id).addEventListener("change", renderPrediction));
+    $("storageForecastStyle").addEventListener("change", renderPrediction);
     ["graphStartDate", "graphEndDate", "storageGraphStartDate", "storageGraphEndDate"].forEach(id => {
       $(id).addEventListener("input", updateCompactGraphDates);
       $(id).addEventListener("change", updateCompactGraphDates);
@@ -176,12 +179,14 @@
         state.charts.summary?.resize();
         state.charts.storageSummary?.resize();
         state.charts.prediction?.resize();
+        state.charts.storageForecast?.resize();
       }
     });
     window.addEventListener("afterprint", () => {
       state.charts.summary?.resize();
       state.charts.storageSummary?.resize();
       state.charts.prediction?.resize();
+      state.charts.storageForecast?.resize();
     });
     $("summaryPrintBtn").addEventListener("click", () => window.print());
     $("graphPrintBtn").addEventListener("click", () => window.print());
@@ -278,6 +283,7 @@
     ["mainForm", "storageForm"].forEach(id => $(id).classList.toggle("hidden", !can("operator")));
     $$(".row-delete-btn").forEach(button => button.disabled = !can("operator") || button.dataset.busy === "true");
     $("masterSaveBtn").disabled = !can("admin") || $("masterSaveBtn").dataset.busy === "true";
+    $("storageForecastUsage").disabled = !can("operator");
     document.querySelector('[data-tab="master"]').classList.toggle("hidden", !can("admin"));
     document.querySelector(".tabs").style.setProperty("--tab-count", can("admin") ? 5 : 4);
     if (state.activeTab === "master" && !can("admin")) switchTab("main");
@@ -344,6 +350,7 @@
       storageEntries,
       settings: Object.fromEntries(settingsRows.map(row => [row.setting_key, row.setting_value]))
     };
+    $("storageForecastUsage").value = clampNumber(state.data.settings.prediction?.avgUsage);
     resetDrafts();
   }
 
@@ -494,7 +501,8 @@
     document.body.classList.toggle("summary-storage-active", storage);
     document.body.classList.toggle("summary-graph-active", actual);
     document.body.classList.toggle("graphs-active", actual || forecast);
-    document.body.classList.toggle("graph-chart-active", actual || (forecast && state.activePrediction === "chart"));
+    document.body.classList.toggle("graph-chart-active", actual || (forecast && ["chart", "storage"].includes(state.activePrediction)));
+    $("predictionRoom").disabled = forecast && state.activePrediction === "storage";
   }
 
   function renderGraphs() {
@@ -507,6 +515,7 @@
     $$("#predictionPanel [data-prediction-view]").forEach(btn => btn.classList.toggle("active", btn.dataset.predictionView === view));
     $("predictionTableView").classList.toggle("active", view === "table");
     $("predictionChartView").classList.toggle("active", view === "chart");
+    $("storageForecastView").classList.toggle("active", view === "storage");
     updateGraphControls();
     renderPrediction();
   }
@@ -1126,6 +1135,15 @@
   async function refreshPrediction() {
     await withBusy($("predictionRefreshBtn"), async () => {
       await requireSession();
+      if (state.activePrediction === "storage") {
+        const avgUsage = clampNumber($("storageForecastUsage").value);
+        if (avgUsage !== clampNumber(state.data.settings.prediction?.avgUsage)) {
+          await requireSession("operator");
+          const value = { ...(state.data.settings.prediction || {}), avgUsage };
+          await assertOk(state.client.from(TABLES.settings).upsert({ setting_key: "prediction", setting_value: value }));
+          state.data.settings.prediction = value;
+        }
+      }
       renderPrediction();
     });
   }
@@ -1148,14 +1166,16 @@
       return `<section class="prediction-month"><h3>${esc(month)} 予測表</h3>${matrixTableHtml(["日", ...pred.rooms.map(room => room.room_name), "合計"], body)}</section>`;
     }).join("");
     renderPredictionChart(pred);
+    renderStorageForecastChart();
     fitResponsiveTables($("predictionPanel"));
   }
 
-  function buildPrediction() {
-    const start = $("predictionStartDate").value;
+  function buildPrediction(options = {}) {
+    const start = options.start ?? $("predictionStartDate").value;
     const end = $("predictionEndDate").value;
     const typeId = $("predictionType").value;
-    const roomId = $("predictionRoom").value;
+    const roomId = options.roomId ?? $("predictionRoom").value;
+    let lastPredictionDate = "";
     const rooms = activeRows(state.data.rooms).filter(room => roomId === "All" || !roomId || room.id === roomId);
     const map = new Map(dateRange(parseYmd(start), parseYmd(end)).map(day => {
       const ymd = dateToStr(day);
@@ -1173,6 +1193,7 @@
       if (clampNumber(row.in_qty) > 0) {
         const days = maturationDays(row);
         const pDate = dateToStr(addDays(parseYmd(row.entry_date), days));
+        if (pDate > lastPredictionDate) lastPredictionDate = pDate;
         if (pDate >= start && pDate <= end && map.has(pDate)) {
           const item = map.get(pDate);
           item.pred += clampNumber(row.in_qty);
@@ -1182,7 +1203,7 @@
       }
     });
 
-    return { rooms, rows: Array.from(map.values()).map(row => ({
+    return { rooms, lastPredictionDate, rows: Array.from(map.values()).map(row => ({
       date: row.date,
       pred: round2(row.pred),
       actual: round2(row.actual),
@@ -1207,6 +1228,72 @@
         ]
       },
       options
+    });
+  }
+
+  function renderStorageForecastChart() {
+    const start = $("predictionStartDate").value;
+    const end = $("predictionEndDate").value;
+    const typeId = $("predictionType").value;
+    const today = todayStr();
+    const mainType = state.data.types.find(type => type.id === typeId);
+    const rows = state.data.storageEntries.filter(row => {
+      if (!isVisibleStorageEntry(row)) return false;
+      if (typeId === "All" || !typeId) return true;
+      return mainType && state.data.storageTypes.find(type => type.id === row.storage_type_id)?.type_name === mainType.type_name;
+    }).sort((a, b) => compareDisplay(a.storage_date, b.storage_date) || compareDisplay(a.recorded_at, b.recorded_at));
+    const cutoff = rows.some(row => row.storage_date === today) ? today : dateToStr(addDays(parseYmd(today), -1));
+    const firstForecastDay = dateToStr(addDays(parseYmd(cutoff), 1));
+    const pred = buildPrediction({ start: start < firstForecastDay ? start : firstForecastDay, roomId: "All" });
+    const latestByType = new Map();
+    const dates = [], daily = [], inventoryData = [];
+    let index = 0, inventory = null;
+    pred.rows.forEach(day => {
+      const actualThrough = day.date < cutoff ? day.date : cutoff;
+      while (index < rows.length && rows[index].storage_date <= actualThrough) {
+        const row = rows[index++];
+        latestByType.set(row.storage_type_id, row);
+      }
+      const actual = latestByType.size ? Array.from(latestByType.values()).reduce((total, row) => total + storageColumns(row), 0) * STORAGE_FORECAST_UNIT.columnsMultiplier : null;
+      if (day.date <= cutoff) inventory = actual;
+      else {
+        if (inventory === null) inventory = actual;
+        if (inventory !== null && day.date <= pred.lastPredictionDate) {
+          const usage = parseYmd(day.date).getDay() === 0 ? 0 : clampNumber(state.data.settings.prediction?.avgUsage);
+          inventory = Math.max(0, inventory + day.pred / STORAGE_FORECAST_UNIT.divisor - usage);
+        }
+      }
+      if (day.date < start || day.date > end) return;
+      dates.push(day.date);
+      daily.push(day.date <= pred.lastPredictionDate ? day.pred / STORAGE_FORECAST_UNIT.divisor : null);
+      inventoryData.push(day.date <= cutoff || day.date <= pred.lastPredictionDate ? inventory : null);
+    });
+    const hasActual = rows.some(row => row.storage_date <= cutoff);
+    const status = $("storageForecastStatus");
+    status.hidden = hasActual && pred.lastPredictionDate > cutoff;
+    status.textContent = !hasActual ? "実績保管数がないため在庫予測は表示できません" : "実績の翌日以降に予測出庫データがありません";
+    $("storageForecastCutoff").textContent = `実績：${fmtDate(cutoff)}まで`;
+    if (typeof Chart === "undefined") return;
+    state.charts.storageForecast?.destroy();
+    const color = date => date <= cutoff ? "#28a745" : "#d9534f";
+    const options = chartOptions(`予測保管数(${STORAGE_FORECAST_UNIT.label})`, `保管在庫(${STORAGE_FORECAST_UNIT.label})`);
+    options.animation = false;
+    options.scales.x = { ticks: { color: context => dates[context.index] && parseYmd(dates[context.index]).getDay() === 0 ? "#d9534f" : "#666" } };
+    options.plugins.tooltip = { callbacks: { title: items => items.length ? fmtDate(dates[items[0].dataIndex]) : "", label: context => {
+      const label = context.datasetIndex === 1 ? `${dates[context.dataIndex] <= cutoff ? "実績" : "予測"}保管在庫` : "予測保管数";
+      return `${label}: ${num(context.raw)}${STORAGE_FORECAST_UNIT.label}`;
+    } } };
+    state.charts.storageForecast = new Chart($("storageForecastChart"), {
+      type: "line",
+      data: {
+        labels: dates.map(fmtShortDate),
+        datasets: [
+          { type: $("storageForecastStyle").value, label: "予測保管数", data: daily, borderColor: "#007bff", backgroundColor: "rgba(0,123,255,.45)", borderWidth: 2, tension: 0, yAxisID: "y" },
+          { type: "line", label: "保管在庫（実績・予測）", data: inventoryData, borderColor: "#28a745", backgroundColor: "#28a745", borderWidth: 2, tension: 0, yAxisID: "y1",
+            segment: { borderColor: context => color(dates[context.p1DataIndex]) },
+            pointBackgroundColor: context => color(dates[context.dataIndex]), pointBorderColor: context => color(dates[context.dataIndex]) }
+        ]
+      }, options
     });
   }
 

@@ -461,7 +461,7 @@ body.summary-storage-active #summaryMetricControls {
   border-top: 1px solid var(--line);
 }
 
-.prediction-bottom-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.prediction-bottom-tabs { grid-template-columns: minmax(0, .5fr) repeat(2, minmax(0, 1fr)); }
 
 
 .summary-metric-controls {
@@ -882,6 +882,15 @@ body.summary-graph-active #summaryMetricControls {
 .prediction-month h3 { margin: 12px 0 6px; font-size: 16px; }
 .prediction-today { outline: 2px solid #ffcc00; outline-offset: -2px; }
 .prediction-today td:not(.total-col) { background: #ffffd0; }
+.storage-forecast-controls { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 8px; margin-bottom: 8px; }
+.storage-forecast-controls select { min-height: 34px; }
+.storage-forecast-usage { display: flex; align-items: center; gap: 8px; font-size: 11px; margin-bottom: 8px; flex-wrap: wrap; }
+.storage-forecast-usage input { width: 75px; min-height: 32px; }
+.storage-forecast-key { display: flex; flex-wrap: wrap; align-content: center; gap: 4px 8px; font-size: 11px; }
+.storage-forecast-key span { display: inline-flex; align-items: center; gap: 4px; }
+.storage-forecast-key i { width: 10px; height: 10px; flex: 0 0 10px; }
+.stock-actual-swatch { background: #28a745; }
+.stock-forecast-swatch { background: #d9534f; }
 
 .graph-series-controls select {
   min-height: 36px;
@@ -938,6 +947,7 @@ body.summary-graph-active #summaryMetricControls {
 
 #summaryGraph .chart-box,
 #storageGraphSummary .chart-box,
+#storageForecastView .chart-box,
 #predictionChartView .chart-box {
   flex: 1 1 0;
   height: auto;
@@ -947,7 +957,8 @@ body.summary-graph-active #summaryMetricControls {
   border-radius: 0;
 }
 
-#predictionChartView.active {
+#predictionChartView.active,
+#storageForecastView.active {
   display: flex;
   flex-direction: column;
   flex: 1 1 0;
@@ -1721,6 +1732,8 @@ body.graphs-active:not(.summary-graph-active) .toast {
   .summary-controls,
   .summary-metric-controls,
   .graph-series-controls,
+  .storage-forecast-controls,
+  .storage-forecast-usage,
   .graph-fullscreen-dialog,
   #graphPrintBtn,
   .action-row,
@@ -1763,6 +1776,7 @@ body.graphs-active:not(.summary-graph-active) .toast {
 
   #summaryGraph .chart-box,
   #storageGraphSummary .chart-box,
+  #storageForecastView .chart-box,
   #predictionChartView .chart-box {
     flex: none;
     height: 140mm;

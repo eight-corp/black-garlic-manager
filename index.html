@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>黒にんにく管理</title>
-  <link rel="stylesheet" href="./styles.css?v=20260914-room-prediction">
+  <link rel="stylesheet" href="./styles.css?v=20260914-storage-forecast">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -237,10 +237,20 @@
           </div>
           <div class="chart-box"><canvas id="predictionChart" role="img" aria-label="予測出庫数と実出庫数の推移"></canvas></div>
         </div>
+        <div id="storageForecastView" class="prediction-view">
+          <div class="storage-forecast-controls">
+            <label class="graph-in-series"><span class="graph-series-label"><span class="graph-series-swatch" aria-hidden="true"></span>予測保管数</span><select id="storageForecastStyle"><option value="line">折れ線</option><option value="bar" selected>棒グラフ</option></select></label>
+            <div class="storage-forecast-key"><span><i class="stock-actual-swatch" aria-hidden="true"></i>在庫実績</span><span><i class="stock-forecast-swatch" aria-hidden="true"></i>在庫予測</span><span id="storageForecastCutoff"></span></div>
+          </div>
+          <p id="storageForecastStatus" class="graph-capacity-status" role="status" hidden></p>
+          <label class="storage-forecast-usage">日平均使用列数<input id="storageForecastUsage" type="number" min="0" step="0.01"><span>ただし、日曜日はカウントしない</span></label>
+          <div class="chart-box"><canvas id="storageForecastChart" role="img" aria-label="予測保管数と、実績から予測につながる保管在庫の推移"></canvas></div>
+        </div>
       </div>
       <div class="prediction-bottom-tabs">
         <button type="button" class="sub-tab" data-prediction-view="table">室</button>
         <button type="button" class="sub-tab active" data-prediction-view="chart">出庫予測グラフ</button>
+        <button type="button" class="sub-tab" data-prediction-view="storage">保管数予測グラフ</button>
       </div>
     </section>
 
@@ -256,6 +266,6 @@
 
   <dialog id="graphFullscreenDialog" class="graph-fullscreen-dialog" aria-label="入出庫・在庫グラフの全画面表示"></dialog>
   <div id="toast" class="toast hidden"></div>
-  <script src="./app.js?v=20260914-room-prediction"></script>
+  <script src="./app.js?v=20260914-storage-forecast"></script>
 </body>
 </html>

@@ -63,7 +63,7 @@ module.exports = async function testStackedStorage(browser, scenario, unlocked) 
     assert.equal(await page.locator('#storageSummaryChart').evaluate(canvas => Chart.getChart(canvas).data.datasets.length), 0);
     assert.equal(await page.locator('#storageGraphStatus').isVisible(), true);
     await page.locator('[data-tab="prediction"]').click();
-    assert.deepEqual(await page.locator('.prediction-bottom-tabs button').allTextContents(), ['\u5ba4', '\u51fa\u5eab\u4e88\u6e2c\u30b0\u30e9\u30d5']);
+    assert.deepEqual(await page.locator('.prediction-bottom-tabs button').allTextContents(), ['\u5ba4', '\u51fa\u5eab\u4e88\u6e2c\u30b0\u30e9\u30d5', '\u4fdd\u7ba1\u6570\u4e88\u6e2c\u30b0\u30e9\u30d5']);
     for (const view of ['table', 'chart']) {
       await page.locator('[data-prediction-view="' + view + '"]').click();
       for (const width of [320, 390, 1280]) {
