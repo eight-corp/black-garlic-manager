@@ -786,6 +786,7 @@ async function run() {
     results.storageGraphModeDatesAndActionsSingleRowMobileDesktopBothModesAndNoWrites = await require('./storage-toolbar.cjs')(browser, scenario, unlocked);
     results.gasStyleRoomPredictionMonthlyMatrixMaturationFiltersTotalsBlueRedIndependentChartStylesNoStorageAndNoWrites = await require('./prediction-room.cjs')(browser, scenario, unlocked);
     results.storageForecastUnitsCutoffConnectedColorsSundayUsageZeroFloorAndResponsive = await require('./storage-forecast.cjs')(browser, scenario, unlocked);
+    results.numberInputsStepOneDecimalRegistrationAndNegativeValidation = await require('./number-step.cjs')(browser, scenario, unlocked);
 
     for (const role of ['operator', 'viewer']) {
       const test = await scenario(browser, { role });

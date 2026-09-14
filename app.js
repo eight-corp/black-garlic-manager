@@ -523,6 +523,12 @@
   async function saveMainEntry() {
     await withBusy($("mainForm").querySelector("button[type='submit']"), async () => {
       await requireSession("operator");
+      // Allow decimal entry independently of the native spinner's integer step.
+      for (const input of $("mainForm").querySelectorAll('input[type="number"]')) {
+        if (input.validity.badInput || input.validity.rangeUnderflow || input.validity.rangeOverflow) {
+          throw new Error("数値入力の値と最小値を確認してください。");
+        }
+      }
       const payload = {
         recorded_at: new Date().toISOString(),
         entry_date: $("mainDate").value,
@@ -1364,7 +1370,7 @@
               <div class="master-row ${showVisibility ? "visibility-master-row" : ""} ${draftKey === "rooms" ? "room-master-row" : draftKey === "types" ? "type-master-row" : ""}" data-draft="${draftKey}" data-index="${index}">
                 <span class="master-index">${index + 1}</span>
                 <input data-field="${nameKey}" value="${esc(row[nameKey] || "")}" placeholder="${esc(label)}">
-                ${draftKey === "rooms" ? `<label class="room-capacity-field" title="在庫と同じ数量単位の目安。超過しても登録できます。"><span>収容能力</span><input data-field="capacity_qty" type="number" min="0" step="0.01" inputmode="decimal" value="${esc(row.capacity_qty ?? "")}" placeholder="未設定"></label>` : ""}
+                ${draftKey === "rooms" ? `<label class="room-capacity-field" title="在庫と同じ数量単位の目安。超過しても登録できます。"><span>収容能力</span><input data-field="capacity_qty" type="number" min="0" step="1" inputmode="decimal" value="${esc(row.capacity_qty ?? "")}" placeholder="未設定"></label>` : ""}
                 ${draftKey === "types" ? `<label class="type-harvest-date-field"><span>収穫基準日<span id="typeHarvestBaseDateWeekday-${index}" class="weekday-inline"></span></span><span class="type-harvest-date-input"><input id="typeHarvestBaseDate-${index}" data-field="harvest_base_date" type="date" value="${esc(row.harvest_base_date || "")}"><span class="type-harvest-date-display" aria-hidden="true"><span id="typeHarvestBaseDateText-${index}"></span><i data-lucide="calendar"></i></span></span></label>` : ""}
                 <button type="button" class="secondary icon-btn" data-master-action="up" title="上へ"><i data-lucide="arrow-up"></i></button>
                 <button type="button" class="secondary icon-btn" data-master-action="down" title="下へ"><i data-lucide="arrow-down"></i></button>

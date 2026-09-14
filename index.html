@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>黒にんにく管理</title>
-  <link rel="stylesheet" href="./styles.css?v=20260914-storage-forecast">
+  <link rel="stylesheet" href="./styles.css?v=20260915-number-step">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -46,7 +46,7 @@
         <h2>出庫・入庫入力</h2>
         <span id="mainStatus" class="notice"></span>
       </div>
-      <form id="mainForm" class="form-grid main-form-grid">
+      <form id="mainForm" class="form-grid main-form-grid" novalidate>
         <input id="mainEntryId" type="hidden">
         <div class="main-input-row main-key-row">
           <label class="main-date-field">
@@ -55,13 +55,13 @@
           </label>
           <label>種別<select id="mainType" required></select></label>
           <label>室名<select id="mainRoom" required></select></label>
-          <label>温度<input id="mainTemperature" type="number" step="0.1" inputmode="decimal"></label>
+          <label>温度<input id="mainTemperature" type="number" step="1" inputmode="decimal"></label>
         </div>
         <div class="main-input-row main-quantity-row">
-          <label>出庫<input id="mainOut" type="number" step="0.01" min="0" inputmode="decimal"></label>
-          <label>入庫<input id="mainIn" type="number" step="0.01" min="0" inputmode="decimal"></label>
-          <label>空き<input id="mainEmpty" type="number" step="0.01" min="0" inputmode="decimal"></label>
-          <label>在庫<input id="mainInventory" type="number" step="0.01" min="0" inputmode="decimal" placeholder="自動" title="空欄なら自動計算"></label>
+          <label>出庫<input id="mainOut" type="number" step="1" min="0" inputmode="decimal"></label>
+          <label>入庫<input id="mainIn" type="number" step="1" min="0" inputmode="decimal"></label>
+          <label>空き<input id="mainEmpty" type="number" step="1" min="0" inputmode="decimal"></label>
+          <label>在庫<input id="mainInventory" type="number" step="1" min="0" inputmode="decimal" placeholder="自動" title="空欄なら自動計算"></label>
           <label class="main-note-field">備考<textarea id="mainNote" rows="1"></textarea></label>
         </div>
         <div class="action-row wide">
@@ -243,7 +243,7 @@
             <div class="storage-forecast-key"><span><i class="stock-actual-swatch" aria-hidden="true"></i>在庫実績</span><span><i class="stock-forecast-swatch" aria-hidden="true"></i>在庫予測</span><span id="storageForecastCutoff"></span></div>
           </div>
           <p id="storageForecastStatus" class="graph-capacity-status" role="status" hidden></p>
-          <label class="storage-forecast-usage">日平均使用列数<input id="storageForecastUsage" type="number" min="0" step="0.01"><span>ただし、日曜日はカウントしない</span></label>
+          <label class="storage-forecast-usage">日平均使用列数<input id="storageForecastUsage" type="number" min="0" step="1"><span>ただし、日曜日はカウントしない</span></label>
           <div class="chart-box"><canvas id="storageForecastChart" role="img" aria-label="予測保管数と、実績から予測につながる保管在庫の推移"></canvas></div>
         </div>
       </div>
@@ -266,6 +266,6 @@
 
   <dialog id="graphFullscreenDialog" class="graph-fullscreen-dialog" aria-label="入出庫・在庫グラフの全画面表示"></dialog>
   <div id="toast" class="toast hidden"></div>
-  <script src="./app.js?v=20260914-storage-forecast"></script>
+  <script src="./app.js?v=20260915-number-step"></script>
 </body>
 </html>
