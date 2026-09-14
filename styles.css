@@ -899,8 +899,8 @@ body.summary-graph-active #summaryMetricControls {
 
 .storage-graph-series-controls { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
 .storage-graph-series-controls[hidden] { display: none; }
-.storage-graph-mode { display: flex; align-items: center; gap: 8px; font-size: 12px; }
-.storage-graph-mode select { width: 180px; min-height: 34px; padding: 4px; font-size: 12px; }
+.storage-graph-toolbar .graph-controls { grid-template-columns: minmax(110px, .9fr) repeat(2, minmax(0, 1fr)) 38px 38px; align-items: end; }
+.storage-graph-mode select { width: 100%; min-height: 38px; padding: 4px; font-size: 12px; }
 .storage-graph-series-kind { position: relative; display: flex; align-items: center; gap: 2px; min-width: 0; margin-bottom: 4px; }
 .storage-graph-series-controls .storage-graph-series-kind select { min-width: 0; appearance: none; padding: 4px 11px 4px 1px; }
 .storage-graph-series-kind .graph-series-swatch { width: 8px; height: 8px; flex-basis: 8px; }
@@ -1616,7 +1616,7 @@ body.graphs-active:not(.summary-graph-active) .toast {
     align-items: end;
   }
 
-  .storage-graph-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)) 26px 26px; }
+  .storage-graph-toolbar { grid-template-columns: 88px repeat(2, minmax(0, 1fr)) 26px 26px; }
 
   :is(.actual-graph-toolbar, .storage-graph-toolbar) .summary-controls {
     display: contents;

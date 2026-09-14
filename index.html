@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>黒にんにく管理</title>
-  <link rel="stylesheet" href="./styles.css?v=20260914-stacked-storage">
+  <link rel="stylesheet" href="./styles.css?v=20260914-storage-toolbar-row">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -169,9 +169,9 @@
       </div>
       <div id="storageGraphSummary" class="summary-view graph-view">
         <h2 id="storageGraphPrintTitle" class="print-title storage-graph-print-title"></h2>
-        <label class="storage-graph-mode">表示形式<select id="storageGraphMode"><option value="line">折れ線タイプ</option><option value="stacked">積み上げ縦棒</option></select></label>
         <div class="storage-graph-toolbar">
           <div class="summary-controls graph-controls">
+            <label class="storage-graph-mode">表示形式<span class="graph-select-input"><select id="storageGraphMode"><option value="line">折れ線タイプ</option><option value="stacked">積み上げ縦棒</option></select><i data-lucide="chevron-down" aria-hidden="true"></i></span></label>
             <label>開始日<span class="graph-date-input"><input id="storageGraphStartDate" type="date"><span class="graph-date-display" aria-hidden="true"><span id="storageGraphStartDateText"></span><i data-lucide="calendar"></i></span></span></label>
             <label>終了日<span class="graph-date-input"><input id="storageGraphEndDate" type="date"><span class="graph-date-display" aria-hidden="true"><span id="storageGraphEndDateText"></span><i data-lucide="calendar"></i></span></span></label>
             <button id="storageGraphRefreshBtn" type="button" class="icon-btn" title="更新" aria-label="更新"><i data-lucide="refresh-cw"></i></button>
@@ -253,6 +253,6 @@
 
   <dialog id="graphFullscreenDialog" class="graph-fullscreen-dialog" aria-label="入出庫・在庫グラフの全画面表示"></dialog>
   <div id="toast" class="toast hidden"></div>
-  <script src="./app.js?v=20260914-stacked-storage"></script>
+  <script src="./app.js?v=20260914-storage-toolbar-row"></script>
 </body>
 </html>

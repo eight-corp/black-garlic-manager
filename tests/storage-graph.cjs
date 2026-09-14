@@ -98,10 +98,10 @@ async function testStorageGraph(browser, scenario, unlocked) {
           frame.bottom <= document.querySelector('.summary-bottom-tabs').getBoundingClientRect().top + 1 && document.documentElement.scrollWidth <= innerWidth;
       });
       assert.ok(await page.locator('.storage-graph-toolbar').evaluate(toolbar => {
-        const fields = [...toolbar.querySelectorAll('input,button')].map(field => field.getBoundingClientRect());
+        const fields = [...toolbar.querySelectorAll('select,input,button')].map(field => field.getBoundingClientRect());
         const bounds = toolbar.getBoundingClientRect();
         const dates = [...toolbar.querySelectorAll('.graph-date-display > span')];
-        return toolbar.scrollWidth <= toolbar.clientWidth && fields.every((frame, index) => frame.width >= 26 &&
+        return toolbar.querySelector('select,input,button').id === 'storageGraphMode' && fields.length === 5 && toolbar.scrollWidth <= toolbar.clientWidth && fields.every((frame, index) => frame.width >= 26 &&
           frame.left >= bounds.left && frame.right <= bounds.right + 1 && Math.abs(frame.top - fields[0].top) < 1 && (!index || frame.left >= fields[index - 1].right)) &&
           dates.every(date => date.scrollWidth <= date.clientWidth);
       }), 'Storage toolbar at width ' + width);

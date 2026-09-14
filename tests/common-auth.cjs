@@ -783,6 +783,7 @@ async function run() {
     results.storageGraphSnapshotsTotalsStorageTypeFiltersIndependentPeriodsStylesMissingFutureResponsiveRefreshPrintAndNoWrites = await require('./storage-graph.cjs')(browser, scenario, unlocked);
     results.storageFullscreenRotationNativeExitFallbackAndPendingCleanup = await require('./graph-rotation.cjs')(browser, scenario, unlocked, 'storageGraph');
     results.stackedStorageAllRecordedTypesNoTotalExactPiecesFutureEmptyResponsiveAndPredictionBottomNavigation = await require('./stacked-storage.cjs')(browser, scenario, unlocked);
+    results.storageGraphModeDatesAndActionsSingleRowMobileDesktopBothModesAndNoWrites = await require('./storage-toolbar.cjs')(browser, scenario, unlocked);
 
     for (const role of ['operator', 'viewer']) {
       const test = await scenario(browser, { role });
