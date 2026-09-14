@@ -773,6 +773,7 @@ async function run() {
     await paginated.context.close();
 
     results.maturationBaseDateBoundariesRoomsZeroDayFallbackDraftPersistenceReloadAndLeapYear = await require('./maturation.cjs')(browser, scenario, unlocked);
+    results.typeHarvestDatesLegacyMigrationIndependentForecastDraftsNewIdsRenameReorderHideClearDeleteValidationAndResponsive = await require('./type-harvest-dates.cjs')(browser, scenario, unlocked);
     results.separateRoomAndStorageSummariesTwoWeeksTotalsHiddenTypesFutureBoundariesResponsivePrintAndNoWrites = await require('./storage-summaries.cjs')(browser, scenario, unlocked, assertTwoWeeklyTables);
     results.compactActualGraphSingleRowDatePickerFullDateLeapAndYearLabelsResponsiveAndNoWrites = await require('./compact-graph.cjs')(browser, scenario, unlocked);
     results.roomCapacitiesDraftSaveReloadRenameReorderZeroBlankDeleteResponsiveAndNoInventoryLimit = await require('./room-capacities.cjs')(browser, scenario, unlocked);

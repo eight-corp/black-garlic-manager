@@ -185,9 +185,12 @@
 
     $("masterPanel").addEventListener("click", handleMasterClick);
     $("masterPanel").addEventListener("change", event => {
-      if (event.target.id !== "harvestBaseDate" || !can("admin")) return;
-      state.drafts.maturation.harvestBaseDate = event.target.value;
-      updateDateWeekday("harvestBaseDate", "harvestBaseDateWeekday");
+      if (!event.target.matches('[data-field="harvest_base_date"]') || !can("admin")) return;
+      const row = event.target.closest('.master-row[data-draft="types"]');
+      if (!row) return;
+      const index = Number(row.dataset.index);
+      state.drafts.types[index].harvest_base_date = event.target.value;
+      updateDateWeekday(`typeHarvestBaseDate-${index}`, `typeHarvestBaseDateWeekday-${index}`);
     });
     $("masterSaveBtn").addEventListener("click", () => saveMaster().catch(showError));
   }
@@ -1123,7 +1126,7 @@
 
   function maturationDays(entry) {
     const lot = state.data.lots.find(item => item.id === entry.harvest_lot_id);
-    const baseDate = state.data.settings.maturation?.harvestBaseDate || lot?.harvest_date;
+    const baseDate = harvestBaseDateForType(entry.type_id) || lot?.harvest_date;
     if (!baseDate) return 30;
     const elapsed = diffDays(parseYmd(baseDate), parseYmd(entry.entry_date));
     const bracket = activeRows(state.data.brackets).find(item =>
@@ -1135,14 +1138,22 @@
     return Math.max(0, Math.floor(Number(rule?.maturation_days ?? 30)));
   }
 
+  function harvestBaseDateForType(typeId) {
+    const settings = state.data.settings.maturation || {};
+    if (Object.prototype.hasOwnProperty.call(settings.harvestBaseDates || {}, typeId)) {
+      return settings.harvestBaseDates[typeId] || "";
+    }
+    // Keep existing forecasts unchanged until the legacy common date is saved by type.
+    return settings.harvestBaseDate || "";
+  }
+
   function resetDrafts() {
     state.drafts = {
       rooms: state.data.rooms.map(row => ({ ...clone(row), capacity_qty: state.data.settings.roomCapacities?.[row.id] ?? null })),
-      types: state.data.types.map(clone),
+      types: state.data.types.map(row => ({ ...clone(row), harvest_base_date: harvestBaseDateForType(row.id) })),
       storageTypes: state.data.storageTypes.map(clone),
       lots: state.data.lots.map(clone),
-      brackets: state.data.brackets.map(clone),
-      maturation: { harvestBaseDate: state.data.settings.maturation?.harvestBaseDate || "" }
+      brackets: state.data.brackets.map(clone)
     };
   }
 
@@ -1153,7 +1164,9 @@
         .filter(Boolean)
     );
     renderRoomAndTypeMaster(openSections);
-    updateDateWeekday("harvestBaseDate", "harvestBaseDateWeekday");
+    state.drafts.types.forEach((row, index) => {
+      updateDateWeekday(`typeHarvestBaseDate-${index}`, `typeHarvestBaseDateWeekday-${index}`);
+    });
     fitResponsiveTables($("masterPanel"));
     createIcons();
   }
@@ -1161,8 +1174,8 @@
   function renderRoomAndTypeMaster(openSections = new Set()) {
     $("masterRooms").innerHTML = `
       ${simpleMasterHtml("rooms", "room_name", "室名", true, openSections)}
-      ${simpleMasterHtml("types", "type_name", "室種別", true, openSections)}
-      ${simpleMasterHtml("storageTypes", "type_name", "保管庫種別", true, openSections)}
+      ${simpleMasterHtml("types", "type_name", "種別", true, openSections)}
+      ${simpleMasterHtml("storageTypes", "type_name", "保管種別", true, openSections)}
       ${maturationMasterHtml(openSections)}
     `;
   }
@@ -1171,14 +1184,15 @@
     const rows = state.drafts[draftKey] || [];
     return `
       <details class="master-section" data-master-section="${draftKey}" ${openSections.has(draftKey) ? "open" : ""}>
-        <summary>${esc(label)}マスタ</summary>
+        <summary>${esc(label)}</summary>
         <div class="master-body">
           <div class="master-list">
             ${rows.map((row, index) => `
-              <div class="master-row ${showVisibility ? "visibility-master-row" : ""} ${draftKey === "rooms" ? "room-master-row" : ""}" data-draft="${draftKey}" data-index="${index}">
+              <div class="master-row ${showVisibility ? "visibility-master-row" : ""} ${draftKey === "rooms" ? "room-master-row" : draftKey === "types" ? "type-master-row" : ""}" data-draft="${draftKey}" data-index="${index}">
                 <span class="master-index">${index + 1}</span>
                 <input data-field="${nameKey}" value="${esc(row[nameKey] || "")}" placeholder="${esc(label)}">
                 ${draftKey === "rooms" ? `<label class="room-capacity-field" title="在庫と同じ数量単位の目安。超過しても登録できます。"><span>収容能力</span><input data-field="capacity_qty" type="number" min="0" step="0.01" inputmode="decimal" value="${esc(row.capacity_qty ?? "")}" placeholder="未設定"></label>` : ""}
+                ${draftKey === "types" ? `<label class="type-harvest-date-field"><span>収穫基準日<span id="typeHarvestBaseDateWeekday-${index}" class="weekday-inline"></span></span><input id="typeHarvestBaseDate-${index}" data-field="harvest_base_date" type="date" value="${esc(row.harvest_base_date || "")}"></label>` : ""}
                 <button type="button" class="secondary icon-btn" data-master-action="up" title="上へ"><i data-lucide="arrow-up"></i></button>
                 <button type="button" class="secondary icon-btn" data-master-action="down" title="下へ"><i data-lucide="arrow-down"></i></button>
                 ${showVisibility ? visibilitySwitch(row.active !== false) : ""}
@@ -1238,10 +1252,6 @@
       <details class="master-section maturation-master-section" data-master-section="maturation" ${openSections.has("maturation") ? "open" : ""}>
         <summary>熟成日数表</summary>
         <div class="master-body">
-          <label class="harvest-base-date-field">
-            <span>収穫基準日<span id="harvestBaseDateWeekday" class="weekday-inline"></span></span>
-            <input id="harvestBaseDate" type="date" value="${esc(state.drafts.maturation.harvestBaseDate)}">
-          </label>
           ${bracketEditor}
           ${matrix}
         </div>
@@ -1269,7 +1279,6 @@
   }
 
   function collectMasterInputs() {
-    state.drafts.maturation.harvestBaseDate = $("harvestBaseDate").value;
     $$(".master-row[data-draft]").forEach(rowEl => {
       const draftKey = rowEl.dataset.draft;
       const index = Number(rowEl.dataset.index);
@@ -1288,7 +1297,8 @@
     if (draftKey === "lots") return { lot_name: "", harvest_date: todayStr(), active: true };
     if (draftKey === "brackets") return { label: "", min_days: 0, max_days: null, active: true };
     if (draftKey === "rooms") return { room_name: "", capacity_qty: null, active: true };
-    if (draftKey === "types" || draftKey === "storageTypes") return { type_name: "", active: true };
+    if (draftKey === "types") return { type_name: "", harvest_base_date: "", active: true };
+    if (draftKey === "storageTypes") return { type_name: "", active: true };
     return {};
   }
 
@@ -1322,10 +1332,12 @@
   }
 
   function validateMasterDrafts() {
-    const baseDate = state.drafts.maturation.harvestBaseDate;
-    if (baseDate && (!/^\d{4}-\d{2}-\d{2}$/.test(baseDate) || dateToStr(parseYmd(baseDate)) !== baseDate)) {
-      throw new Error("収穫基準日を正しく選択してください。");
-    }
+    state.drafts.types.forEach(row => {
+      const baseDate = row.harvest_base_date;
+      if (String(row.type_name || "").trim() && baseDate && (!/^\d{4}-\d{2}-\d{2}$/.test(baseDate) || dateToStr(parseYmd(baseDate)) !== baseDate)) {
+        throw new Error(`収穫基準日を正しく選択してください: ${row.type_name}`);
+      }
+    });
     validateSimpleMasterDraft("rooms", "room_name", "室名", isRoomUsed);
     state.drafts.rooms.forEach(row => {
       if (!String(row.room_name || "").trim() || row.capacity_qty === null || row.capacity_qty === undefined) return;
@@ -1333,8 +1345,8 @@
         throw new Error(`収容能力は0以上の数値を入力してください: ${row.room_name}`);
       }
     });
-    validateSimpleMasterDraft("types", "type_name", "室種別", isTypeUsed);
-    validateSimpleMasterDraft("storageTypes", "type_name", "保管庫種別", isStorageTypeUsed);
+    validateSimpleMasterDraft("types", "type_name", "種別", isTypeUsed);
+    validateSimpleMasterDraft("storageTypes", "type_name", "保管種別", isStorageTypeUsed);
     assertNoDuplicateDraftNames(state.drafts.brackets, "label", "区分名");
   }
 
@@ -1356,7 +1368,7 @@
   async function saveSimpleDraft(draftKey, table, nameKey, usedFn) {
     const originalIds = new Set(state.data[draftKey].map(row => row.id));
     const originalById = new Map(state.data[draftKey].map(row => [row.id, row]));
-    const masterLabel = draftKey === "rooms" ? "室名" : draftKey === "types" ? "室種別" : "保管庫種別";
+    const masterLabel = draftKey === "rooms" ? "室名" : draftKey === "types" ? "種別" : "保管種別";
     assertNoDuplicateDraftNames(state.drafts[draftKey], nameKey, masterLabel);
     const rows = uniqueDraftRows(state.drafts[draftKey], nameKey).map((row, index) => ({
       ...row,
@@ -1541,10 +1553,22 @@
   }
 
   async function saveMaturationSettings() {
-    const harvestBaseDate = state.drafts.maturation.harvestBaseDate;
+    const rows = uniqueDraftRows(state.drafts.types, "type_name");
+    const types = rows.some(row => !row.id) ? await selectAll(TABLES.types) : state.data.types;
+    const idsByName = new Map(types.map(row => [row.type_name, row.id]));
+    const harvestBaseDates = {};
+    for (const row of rows) {
+      const id = row.id || idsByName.get(row.type_name);
+      if (!id) throw new Error(`収穫基準日の保存先の種別を確認できません: ${row.type_name}`);
+      harvestBaseDates[id] = row.harvest_base_date || "";
+    }
     const current = state.data.settings.maturation || {};
-    if (harvestBaseDate === (current.harvestBaseDate || "")) return;
-    const value = { ...current, harvestBaseDate };
+    const existingDates = current.harvestBaseDates || {};
+    if (!Object.prototype.hasOwnProperty.call(current, "harvestBaseDate") &&
+      Object.keys(existingDates).length === Object.keys(harvestBaseDates).length &&
+      Object.keys(harvestBaseDates).every(id => existingDates[id] === harvestBaseDates[id])) return;
+    const value = { ...current, harvestBaseDates };
+    delete value.harvestBaseDate;
     await assertOk(state.client.from(TABLES.settings).upsert({
       setting_key: "maturation",
       setting_value: value

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>黒にんにく管理</title>
-  <link rel="stylesheet" href="./styles.css?v=20260914-room-storage-summary-tabs">
+  <link rel="stylesheet" href="./styles.css?v=20260914-type-harvest-dates">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -209,13 +209,13 @@
         <h2>マスタ</h2>
         <button id="masterSaveBtn" type="button"><i data-lucide="save"></i><span>確定</span></button>
       </div>
-      <p class="hint">一覧の変更は「確定」を押すまでSupabaseに反映しません。使用中の室名・種別・保管庫種別は削除できません。</p>
+      <p class="hint">一覧の変更は「確定」を押すまでSupabaseに反映しません。使用中の室名・種別・保管種別は削除できません。</p>
       <div id="masterRooms" class="master-view active"></div>
     </section>
   </main>
 
   <dialog id="graphFullscreenDialog" class="graph-fullscreen-dialog" aria-label="入出庫・在庫グラフの全画面表示"></dialog>
   <div id="toast" class="toast hidden"></div>
-  <script src="./app.js?v=20260914-room-storage-summary-tabs"></script>
+  <script src="./app.js?v=20260914-type-harvest-dates"></script>
 </body>
 </html>

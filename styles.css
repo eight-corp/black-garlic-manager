@@ -960,6 +960,15 @@ body.graph-fullscreen-active { overflow: hidden; }
   grid-template-columns: 30px minmax(90px, 1fr) 110px 34px 34px 82px 34px;
 }
 
+.type-master-row {
+  grid-template-columns: 30px minmax(90px, 1fr) 210px 34px 34px 82px 34px;
+}
+
+.type-master-row > input,
+.type-harvest-date-field {
+  min-width: 0;
+}
+
 .room-master-row > input,
 .room-capacity-field {
   min-width: 0;
@@ -1019,12 +1028,13 @@ body.graph-fullscreen-active { overflow: hidden; }
   font-weight: 800;
 }
 
-.harvest-base-date-field {
+.type-harvest-date-field {
   width: min(100%, 240px);
-  margin-bottom: 12px;
+  gap: 2px;
+  font-size: 11px;
 }
 
-#masterPanel .harvest-base-date-field input {
+#masterPanel .type-harvest-date-field input {
   min-width: 0;
 }
 
@@ -1448,6 +1458,18 @@ body.graphs-active:not(.summary-graph-active) .toast {
   .room-master-row [data-master-action="down"] { grid-column: 4; grid-row: 2; }
   .room-master-row .visibility-switch { grid-column: 5; grid-row: 2; }
   .room-master-row [data-master-action="remove"] { grid-column: 6; grid-row: 2; }
+
+  .type-master-row {
+    grid-template-columns: 20px minmax(0, 1fr) 30px 30px 72px 30px;
+  }
+
+  .type-master-row .master-index { grid-column: 1; grid-row: 1 / 4; }
+  .type-master-row > input { grid-column: 2 / -1; grid-row: 1; }
+  .type-master-row .type-harvest-date-field { grid-column: 2 / -1; grid-row: 2; }
+  .type-master-row [data-master-action="up"] { grid-column: 3; grid-row: 3; }
+  .type-master-row [data-master-action="down"] { grid-column: 4; grid-row: 3; }
+  .type-master-row .visibility-switch { grid-column: 5; grid-row: 3; }
+  .type-master-row [data-master-action="remove"] { grid-column: 6; grid-row: 3; }
 
   .visibility-switch {
     grid-template-columns: 30px 36px;

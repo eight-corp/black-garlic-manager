@@ -83,23 +83,26 @@ async function testMaturation(browser, scenario, unlocked) {
     await showForecast('');
     await page.locator('[data-tab="master"]').click();
     const section = page.locator('[data-master-section="maturation"]');
+    const types = page.locator('[data-master-section="types"]');
+    assert.equal(await page.locator('#harvestBaseDate').count(), 0);
+    await types.locator('summary').click();
     assert.equal(await section.getAttribute('open'), null);
     await section.locator('summary').click();
-    assert.equal(await page.locator('#harvestBaseDate').inputValue(), '');
-    await page.locator('#harvestBaseDate').fill('2026-01-01');
-    assert.equal(await page.locator('#harvestBaseDateWeekday').textContent(), '\uff08\u6728\u66dc\u65e5\uff09');
+    assert.equal(await page.locator('#typeHarvestBaseDate-0').inputValue(), '');
+    await page.locator('#typeHarvestBaseDate-0').fill('2026-01-01');
+    assert.equal(await page.locator('#typeHarvestBaseDateWeekday-0').textContent(), '\uff08\u6728\u66dc\u65e5\uff09');
     const writesBefore = backend.writes.length;
     await section.locator('[data-master-action="add"][data-draft="brackets"]').click();
-    assert.equal(await page.locator('#harvestBaseDate').inputValue(), '2026-01-01');
+    assert.equal(await page.locator('#typeHarvestBaseDate-0').inputValue(), '2026-01-01');
     assert.notEqual(await section.getAttribute('open'), null);
     await section.locator('.bracket-row').last().locator('[data-master-action="remove"]').click();
-    assert.equal(await page.locator('#harvestBaseDate').inputValue(), '2026-01-01');
+    assert.equal(await page.locator('#typeHarvestBaseDate-0').inputValue(), '2026-01-01');
     assert.equal(backend.writes.length, writesBefore);
     await showForecast('');
     await page.locator('[data-tab="master"]').click();
     await save();
-    assert.equal(await page.locator('#harvestBaseDate').inputValue(), '2026-01-01');
-    assert.deepEqual(backend.db.black_garlic_settings.find(row => row.setting_key === 'maturation').setting_value, { futureOption: 'preserve', harvestBaseDate: '2026-01-01' });
+    assert.equal(await page.locator('#typeHarvestBaseDate-0').inputValue(), '2026-01-01');
+    assert.deepEqual(backend.db.black_garlic_settings.find(row => row.setting_key === 'maturation').setting_value, { futureOption: 'preserve', harvestBaseDates: { type: '2026-01-01' } });
     await showForecast('2026-01-01');
     assert.deepEqual(await readForecast(), {
       '2026-01-01': 320,
@@ -116,7 +119,7 @@ async function testMaturation(browser, scenario, unlocked) {
     await page.locator('[data-tab="master"]').click();
     for (const width of [320, 390, 1280]) {
       await page.setViewportSize({ width, height: 844 });
-      const bounds = await page.locator('#harvestBaseDate').boundingBox();
+      const bounds = await page.locator('#typeHarvestBaseDate-0').boundingBox();
       assert.ok(bounds.width >= 142 && bounds.x + bounds.width <= width);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       if (process.env.QA_ARTIFACTS) await page.screenshot({ path: path.join(process.env.QA_ARTIFACTS, 'maturation-base-date-' + width + '.png'), fullPage: true });
@@ -124,18 +127,18 @@ async function testMaturation(browser, scenario, unlocked) {
     await page.reload();
     await unlocked(page);
     await page.locator('[data-tab="master"]').click();
-    await section.locator('summary').click();
-    assert.equal(await page.locator('#harvestBaseDate').inputValue(), '2026-01-01');
-    await page.locator('#harvestBaseDate').fill('2026-01-02');
+    await types.locator('summary').click();
+    assert.equal(await page.locator('#typeHarvestBaseDate-0').inputValue(), '2026-01-01');
+    await page.locator('#typeHarvestBaseDate-0').fill('2026-01-02');
     await showForecast('2026-01-01');
     await page.locator('[data-tab="master"]').click();
-    assert.equal(await page.locator('#harvestBaseDate').inputValue(), '2026-01-02');
+    assert.equal(await page.locator('#typeHarvestBaseDate-0').inputValue(), '2026-01-02');
     await save();
-    assert.equal(backend.db.black_garlic_settings.find(row => row.setting_key === 'maturation').setting_value.harvestBaseDate, '2026-01-02');
-    assert.equal(await page.locator('#harvestBaseDate').inputValue(), '2026-01-02');
+    assert.equal(backend.db.black_garlic_settings.find(row => row.setting_key === 'maturation').setting_value.harvestBaseDates.type, '2026-01-02');
+    assert.equal(await page.locator('#typeHarvestBaseDate-0').inputValue(), '2026-01-02');
     await showForecast('2026-01-02');
     await page.locator('[data-tab="master"]').click();
-    await page.locator('#harvestBaseDate').fill('');
+    await page.locator('#typeHarvestBaseDate-0').fill('');
     await save();
     await showForecast('');
     assert.deepEqual({ main: backend.db.black_garlic_entries, storage: backend.db.black_garlic_storage_entries }, operationalBefore);
@@ -144,7 +147,7 @@ async function testMaturation(browser, scenario, unlocked) {
     assert.equal(backend.writes.filter(write => ['black_garlic_entries', 'black_garlic_storage_entries'].includes(write.resource)).length, 0);
 
     backend.db.black_garlic_entries = [0, 60, 61, 181].map((elapsed, index) => ({ ...operationalBefore.main[index], entry_date: day('2024-02-29', elapsed), in_qty: 32 * (index + 1) }));
-    backend.db.black_garlic_settings.find(row => row.setting_key === 'maturation').setting_value.harvestBaseDate = '2024-02-29';
+    backend.db.black_garlic_settings.find(row => row.setting_key === 'maturation').setting_value.harvestBaseDates.type = '2024-02-29';
     backend.db.black_garlic_age_brackets.unshift({ id: 'hidden', label: 'Hidden', min_days: 0, max_days: null, active: false, display_order: 0 });
     await page.reload();
     await unlocked(page);
