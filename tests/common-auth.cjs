@@ -533,7 +533,7 @@ async function run() {
     const graph = await scenario(browser);
     await graph.page.goto(appUrl); await unlocked(graph.page);
     await openActualGraph(graph.page);
-    assert.equal(await graph.page.locator('[data-tab="prediction"] span').textContent(), '\u30b0\u30e9\u30d5');
+    assert.equal(await graph.page.locator('[data-tab="prediction"] span').textContent(), '\u4e88\u6e2c');
     assert.deepEqual(await graph.page.locator('.summary-bottom-tabs button').allTextContents(), ['\u9031\u6bce(\u5ba4)', '\u9031\u6bce(\u4fdd\u7ba1\u5eab)', '\u6708\u6bce(\u5ba4)', '\u6708\u6bce(\u4fdd\u7ba1\u5eab)', '\u30b0\u30e9\u30d5(\u5ba4)', '\u30b0\u30e9\u30d5(\u4fdd\u7ba1\u5eab)']);
     assert.equal(await graph.page.locator('#summaryPanel #summaryGraph').count(), 1);
     assert.equal(await graph.page.locator('#predictionPanel #summaryGraph,[data-graph-view],.graphs-bottom-tabs').count(), 0);
@@ -782,6 +782,7 @@ async function run() {
     results.fullscreenGraphPortraitLandscapeRotationScopedNativeExitFallbackAndPendingCleanup = await require('./graph-rotation.cjs')(browser, scenario, unlocked);
     results.storageGraphSnapshotsTotalsStorageTypeFiltersIndependentPeriodsStylesMissingFutureResponsiveRefreshPrintAndNoWrites = await require('./storage-graph.cjs')(browser, scenario, unlocked);
     results.storageFullscreenRotationNativeExitFallbackAndPendingCleanup = await require('./graph-rotation.cjs')(browser, scenario, unlocked, 'storageGraph');
+    results.stackedStorageAllRecordedTypesNoTotalExactPiecesFutureEmptyResponsiveAndPredictionBottomNavigation = await require('./stacked-storage.cjs')(browser, scenario, unlocked);
 
     for (const role of ['operator', 'viewer']) {
       const test = await scenario(browser, { role });

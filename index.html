@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>黒にんにく管理</title>
-  <link rel="stylesheet" href="./styles.css?v=20260914-five-series">
+  <link rel="stylesheet" href="./styles.css?v=20260914-stacked-storage">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -37,7 +37,7 @@
       <button type="button" class="tab active" data-tab="main"><i data-lucide="clipboard-pen-line"></i><span>出庫・入庫</span></button>
       <button type="button" class="tab" data-tab="storage"><i data-lucide="warehouse"></i><span>保管庫</span></button>
       <button type="button" class="tab" data-tab="summary"><i data-lucide="table-2"></i><span>集計</span></button>
-      <button type="button" class="tab" data-tab="prediction"><i data-lucide="chart-line"></i><span>グラフ</span></button>
+      <button type="button" class="tab" data-tab="prediction"><i data-lucide="chart-line"></i><span>予測</span></button>
       <button type="button" class="tab" data-tab="master"><i data-lucide="settings-2"></i><span>マスタ</span></button>
     </nav>
 
@@ -169,6 +169,7 @@
       </div>
       <div id="storageGraphSummary" class="summary-view graph-view">
         <h2 id="storageGraphPrintTitle" class="print-title storage-graph-print-title"></h2>
+        <label class="storage-graph-mode">表示形式<select id="storageGraphMode"><option value="line">折れ線タイプ</option><option value="stacked">積み上げ縦棒</option></select></label>
         <div class="storage-graph-toolbar">
           <div class="summary-controls graph-controls">
             <label>開始日<span class="graph-date-input"><input id="storageGraphStartDate" type="date"><span class="graph-date-display" aria-hidden="true"><span id="storageGraphStartDateText"></span><i data-lucide="calendar"></i></span></span></label>
@@ -214,7 +215,7 @@
 
     <section id="predictionPanel" class="panel" data-panel="prediction">
       <div class="section-title">
-        <h2>グラフ</h2>
+        <h2>予測</h2>
         <button id="graphPrintBtn" type="button" class="secondary"><i data-lucide="printer"></i><span>印刷</span></button>
       </div>
       <div id="forecastGraphs" class="graph-view active">
@@ -227,16 +228,16 @@
           <button id="predictionRefreshBtn" type="button" class="icon-btn" title="更新" aria-label="更新"><i data-lucide="refresh-cw"></i></button>
         </div>
         <p class="hint">在庫数は16枚で1列、端数は枚数です。出庫予測は出庫数2で1枚、16枚で1列として保管列に換算します。日平均使用列数は日曜日を除いて差し引きます。</p>
-        <div class="sub-tabs">
-          <button type="button" class="sub-tab" data-prediction-view="table">予測出庫数</button>
-          <button type="button" class="sub-tab active" data-prediction-view="chart">出庫予測グラフ</button>
-        </div>
         <div id="predictionTableView" class="prediction-view">
           <div id="predictionTable" class="table-wrap"></div>
         </div>
         <div id="predictionChartView" class="prediction-view active">
           <div class="chart-box"><canvas id="predictionChart" role="img" aria-label="出庫予測と保管数の推移"></canvas></div>
         </div>
+      </div>
+      <div class="prediction-bottom-tabs">
+        <button type="button" class="sub-tab" data-prediction-view="table">室</button>
+        <button type="button" class="sub-tab active" data-prediction-view="chart">出庫予測グラフ</button>
       </div>
     </section>
 
@@ -252,6 +253,6 @@
 
   <dialog id="graphFullscreenDialog" class="graph-fullscreen-dialog" aria-label="入出庫・在庫グラフの全画面表示"></dialog>
   <div id="toast" class="toast hidden"></div>
-  <script src="./app.js?v=20260914-five-series"></script>
+  <script src="./app.js?v=20260914-stacked-storage"></script>
 </body>
 </html>

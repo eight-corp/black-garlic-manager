@@ -128,6 +128,7 @@
     $("summaryRefreshBtn").addEventListener("click", renderSummary);
     $("graphRefreshBtn").addEventListener("click", renderSummaryGraph);
     $("storageGraphRefreshBtn").addEventListener("click", renderStorageSummaryGraph);
+    $("storageGraphMode").addEventListener("change", renderStorageSummaryGraph);
     ["graphStartDate", "graphEndDate", "storageGraphStartDate", "storageGraphEndDate"].forEach(id => {
       $(id).addEventListener("input", updateCompactGraphDates);
       $(id).addEventListener("change", updateCompactGraphDates);
@@ -1066,16 +1067,23 @@
     const start = $("storageGraphStartDate").value;
     const end = $("storageGraphEndDate").value;
     const days = dateRange(parseYmd(start), parseYmd(end));
-    const series = STORAGE_GRAPH_SERIES.map(slot => ({
-      ...slot, typeId: slot.fixed ? "All" : $(slot.typeInput).value,
-      label: slot.fixed ? "全体" : $(slot.typeInput).selectedOptions[0]?.textContent || "",
-      data: []
-    })).filter(slot => slot.fixed || slot.typeId);
-    $("storageGraphPrintTitle").textContent = `グラフ(保管庫) ${series.map(slot => slot.label).join("・")} ${start}〜${end}`;
+    const stacked = $("storageGraphMode").value === "stacked";
+    document.querySelector(".storage-graph-series-controls").hidden = stacked;
     const today = todayStr();
     const rows = state.data.storageEntries
       .filter(isVisibleStorageEntry)
       .sort((a, b) => compareDisplay(a.storage_date, b.storage_date) || compareDisplay(a.recorded_at, b.recorded_at));
+    const recordedTypes = new Set(rows.filter(row => row.storage_date <= end && row.storage_date <= today).map(row => row.storage_type_id));
+    const colors = ["#007bff", "#d9534f", "#d89a00", "#28a745", "#008b8b", "#e377c2", "#9467bd", "#6b8e23", "#17becf", "#c44e52", "#8c564b", "#7f7f7f"];
+    const series = stacked ? activeRows(state.data.storageTypes).map((type, index) => ({
+      typeId: type.id, label: type.type_name, color: colors[index % colors.length],
+      background: colors[index % colors.length], data: []
+    })).filter(slot => recordedTypes.has(slot.typeId)) : STORAGE_GRAPH_SERIES.map(slot => ({
+      ...slot, typeId: slot.fixed ? "All" : $(slot.typeInput).value,
+      label: slot.fixed ? "全体" : $(slot.typeInput).selectedOptions[0]?.textContent || "",
+      data: []
+    })).filter(slot => slot.fixed || slot.typeId);
+    $("storageGraphPrintTitle").textContent = `グラフ(保管庫) ${stacked ? "積み上げ縦棒 " : ""}${series.map(slot => slot.label).join("・")} ${start}〜${end}`;
     const latestByType = new Map();
     let index = 0;
     days.forEach(day => {
@@ -1087,7 +1095,7 @@
       const total = round2(Array.from(latestByType.values()).reduce((value, row) => value + storageColumns(row), 0));
       series.forEach(slot => {
         const row = latestByType.get(slot.typeId);
-        const value = slot.fixed ? latestByType.size ? total : null : row ? round2(storageColumns(row)) : null;
+        const value = slot.fixed ? latestByType.size ? total : null : row ? stacked ? storageColumns(row) : round2(storageColumns(row)) : null;
         slot.data.push(ymd > today ? null : value);
       });
     });
@@ -1097,12 +1105,13 @@
     if (typeof Chart === "undefined") return;
     if (state.charts.storageSummary) state.charts.storageSummary.destroy();
     state.charts.storageSummary = new Chart($("storageSummaryChart"), {
-      type: "line",
+      type: stacked ? "bar" : "line",
       data: {
         labels: days.map(day => fmtShortDate(dateToStr(day))),
         datasets: series.map(slot => ({
-          type: $(slot.styleInput).value, label: slot.label, data: slot.data,
-          borderColor: slot.color, backgroundColor: slot.background, tension: 0
+          type: stacked ? "bar" : $(slot.styleInput).value, label: slot.label, data: slot.data,
+          borderColor: slot.color, backgroundColor: slot.background, tension: 0,
+          ...(stacked ? { stack: "storage" } : {})
         }))
       },
       options: {
@@ -1110,9 +1119,9 @@
         interaction: { mode: "index", intersect: false },
         plugins: {
           legend: { position: "bottom" },
-          tooltip: { callbacks: { label: context => `${context.dataset.label}: ${context.formattedValue}列` } }
+          tooltip: { callbacks: { label: context => `${context.dataset.label}: ${stacked ? round2(context.raw) : context.formattedValue}列` } }
         },
-        scales: { y: { beginAtZero: true, title: { display: true, text: "保管数(列)" } } }
+        scales: { x: { stacked }, y: { stacked, beginAtZero: true, title: { display: true, text: "保管数(列)" } } }
       }
     });
   }

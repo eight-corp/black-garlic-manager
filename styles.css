@@ -443,7 +443,8 @@ body.summary-storage-active #summaryMetricControls {
   border-color: var(--brand);
 }
 
-.summary-bottom-tabs {
+.summary-bottom-tabs,
+.prediction-bottom-tabs {
   position: fixed;
   left: 0;
   right: 0;
@@ -459,6 +460,8 @@ body.summary-storage-active #summaryMetricControls {
   background: rgba(255, 255, 255, .96);
   border-top: 1px solid var(--line);
 }
+
+.prediction-bottom-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
 
 .summary-metric-controls {
@@ -540,7 +543,8 @@ body.summary-storage-active #summaryMetricControls {
   font-weight: 400;
 }
 
-.summary-bottom-tabs .sub-tab {
+.summary-bottom-tabs .sub-tab,
+.prediction-bottom-tabs .sub-tab {
   flex-direction: column;
   gap: 0;
   min-width: 0;
@@ -772,7 +776,7 @@ tr.clickable:hover {
 
 body.graphs-active main {
   width: 100%;
-  padding: 0 0 var(--main-nav-height);
+  padding: 0 0 calc(var(--main-nav-height) + var(--summary-nav-height));
 }
 
 body.summary-graph-active main {
@@ -791,7 +795,7 @@ body.graph-chart-active #predictionPanel.active-panel,
 body.summary-graph-active #summaryPanel.active-panel {
   display: flex;
   flex-direction: column;
-  height: calc(100dvh - var(--app-header-height) - var(--main-nav-height));
+  height: calc(100dvh - var(--app-header-height) - var(--main-nav-height) - var(--summary-nav-height));
   min-height: 420px;
 }
 
@@ -894,6 +898,9 @@ body.summary-graph-active #summaryMetricControls {
 .graph-inventory-series .graph-series-swatch { background: #28a745; }
 
 .storage-graph-series-controls { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+.storage-graph-series-controls[hidden] { display: none; }
+.storage-graph-mode { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.storage-graph-mode select { width: 180px; min-height: 34px; padding: 4px; font-size: 12px; }
 .storage-graph-series-kind { position: relative; display: flex; align-items: center; gap: 2px; min-width: 0; margin-bottom: 4px; }
 .storage-graph-series-controls .storage-graph-series-kind select { min-width: 0; appearance: none; padding: 4px 11px 4px 1px; }
 .storage-graph-series-kind .graph-series-swatch { width: 8px; height: 8px; flex-basis: 8px; }
@@ -1703,6 +1710,8 @@ body.graphs-active:not(.summary-graph-active) .toast {
   .app-header,
   .tabs,
   .sub-tabs,
+  .prediction-bottom-tabs,
+  .storage-graph-mode,
   .summary-controls,
   .summary-metric-controls,
   .graph-series-controls,
