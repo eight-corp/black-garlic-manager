@@ -27,10 +27,11 @@
   const compactGraphDateFormat = new Intl.DateTimeFormat("ja-JP", { year: "2-digit", month: "2-digit", day: "2-digit" });
 
   const STORAGE_GRAPH_SERIES = [
-    { typeInput: "storageGraphType", styleInput: "storageGraphStyle", color: "#28a745", background: "rgba(40,167,69,.45)", fixed: true },
+    { typeInput: "storageGraphType", styleInput: "storageGraphStyle", color: "#000000", background: "#000000", fixed: true },
     { typeInput: "storageGraphType2", styleInput: "storageGraphStyle2", color: "#007bff", background: "rgba(0,123,255,.45)" },
     { typeInput: "storageGraphType3", styleInput: "storageGraphStyle3", color: "#d9534f", background: "rgba(217,83,79,.45)" },
-    { typeInput: "storageGraphType4", styleInput: "storageGraphStyle4", color: "#d89a00", background: "rgba(216,154,0,.45)" }
+    { typeInput: "storageGraphType4", styleInput: "storageGraphStyle4", color: "#d89a00", background: "rgba(216,154,0,.45)" },
+    { typeInput: "storageGraphType5", styleInput: "storageGraphStyle5", color: "#28a745", background: "rgba(40,167,69,.45)" }
   ];
 
   const state = {
@@ -138,7 +139,7 @@
         }
       });
     });
-    ["graphType", "graphRoom", "graphInType", "graphOutType", "graphInventoryType", "graphCapacityType"].forEach(id => {
+    ["graphType", "graphRoom", "graphInType", "graphOutType", "graphInventoryType"].forEach(id => {
       $(id).addEventListener("change", renderSummaryGraph);
     });
     STORAGE_GRAPH_SERIES.flatMap(series => [series.typeInput, series.styleInput]).forEach(id => {
@@ -1031,60 +1032,21 @@
     const inData = [];
     const outData = [];
     const inventoryData = [];
-    const capacityPercentData = [];
-    const capacityTotals = [];
-    const capacityInventories = [];
-    const capacityIssues = new Set();
     const typeId = $("graphType").value;
     const roomId = $("graphRoom").value;
-    const rooms = activeRows(state.data.rooms);
-    const capacities = state.data.settings.roomCapacities || {};
-    const allTypes = typeId === "All" || !typeId;
     days.forEach(day => {
       const ymd = dateToStr(day);
       const rows = filterEntries(ymd, ymd, typeId, roomId);
       inData.push(round2(sum(rows, "in_qty")));
       outData.push(round2(sum(rows, "out_qty")));
-      const latestRows = latestInventoryEntriesAsOf(ymd, typeId, "All");
-      const inventoryByRoom = new Map();
-      latestRows.forEach(row => inventoryByRoom.set(row.room_id, (inventoryByRoom.get(row.room_id) || 0) + clampNumber(row.inventory_qty)));
-      const allInventory = Array.from(inventoryByRoom.values()).reduce((total, value) => total + value, 0);
-      const inventory = roomId === "All" || !roomId ? allInventory : inventoryByRoom.get(roomId) || 0;
-      inventoryData.push(round2(inventory));
-      // A selected type uses only rooms holding its stock on this date; the room filter does not affect utilization.
-      const capacityRooms = allTypes ? rooms : rooms.filter(room => (inventoryByRoom.get(room.id) || 0) > 0);
-      const missing = capacityRooms.some(room => typeof capacities[room.id] !== "number" || !Number.isFinite(capacities[room.id]) || capacities[room.id] < 0);
-      const totalCapacity = missing ? 0 : capacityRooms.reduce((total, room) => total + capacities[room.id], 0);
-      if (missing) capacityIssues.add("収容能力が未設定の室がある日は表示できません");
-      else if (capacityRooms.length && (!Number.isFinite(totalCapacity) || totalCapacity <= 0)) capacityIssues.add("収容能力の合計が0または無効な日は表示できません");
-      const ready = capacityRooms.length > 0 && !missing && Number.isFinite(totalCapacity) && totalCapacity > 0;
-      capacityPercentData.push(ready ? round2(allInventory / totalCapacity * 100) : null);
-      capacityTotals.push(totalCapacity);
-      capacityInventories.push(allInventory);
+      inventoryData.push(round2(inventoryAsOf(ymd, typeId, roomId)));
     });
-    const capacityReady = capacityPercentData.some(value => value !== null);
-    const capacityStatus = $("graphCapacityStatus");
-    capacityStatus.hidden = capacityReady && capacityIssues.size === 0;
-    capacityStatus.textContent = capacityIssues.size ? `収容率：${Array.from(capacityIssues).join("。")}` :
-      capacityReady ? "" : allTypes ? "収容率：表示対象の室がありません" : "収容率：選択した種別の在庫がある室がありません";
 
     const canvas = $("summaryChart");
     if (typeof Chart === "undefined") return;
     if (state.charts.summary) state.charts.summary.destroy();
     const options = chartOptions("数量", "在庫");
     options.animation = false;
-    options.scales.y2 = {
-      display: capacityReady, beginAtZero: true, suggestedMax: 100, position: "right",
-      grid: { drawOnChartArea: false },
-      title: { display: true, text: "収容率(%)", color: "#000000" },
-      ticks: { color: "#000000", callback: value => `${value}%` }
-    };
-    options.plugins.tooltip = {
-      callbacks: {
-        label: context => `${context.dataset.label}: ${context.formattedValue}${context.dataset.yAxisID === "y2" ? "%" : ""}`,
-        afterLabel: context => context.dataset.yAxisID === "y2" ? `在庫: ${round2(capacityInventories[context.dataIndex])} / 収容能力: ${round2(capacityTotals[context.dataIndex])}` : ""
-      }
-    };
     state.charts.summary = new Chart(canvas, {
       type: "line",
       data: {
@@ -1092,8 +1054,7 @@
         datasets: [
           { type: $("graphInType").value, label: "入庫", data: inData, borderColor: "#007bff", backgroundColor: "rgba(0,123,255,.45)", tension: .25, yAxisID: "y" },
           { type: $("graphOutType").value, label: "出庫", data: outData, borderColor: "#d9534f", backgroundColor: "rgba(217,83,79,.45)", tension: .25, yAxisID: "y" },
-          { type: $("graphInventoryType").value, label: "在庫", data: inventoryData, borderColor: "#28a745", backgroundColor: "rgba(40,167,69,.45)", tension: .25, yAxisID: "y1" },
-          { type: $("graphCapacityType").value, label: allTypes ? "全室収容率" : `収容率（${state.data.types.find(type => type.id === typeId)?.type_name || "選択種別"}）`, data: capacityPercentData, borderColor: "#000000", backgroundColor: "#000000", borderWidth: 2, pointRadius: 1.5, tension: 0, yAxisID: "y2", order: -1 }
+          { type: $("graphInventoryType").value, label: "在庫", data: inventoryData, borderColor: "#28a745", backgroundColor: "rgba(40,167,69,.45)", tension: .25, yAxisID: "y1" }
         ]
       },
       options

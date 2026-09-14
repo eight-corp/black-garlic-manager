@@ -36,7 +36,7 @@ async function testCompactGraph(browser, scenario, unlocked) {
             (!compact || (Math.abs(frame.top - controls[0].top) < 1 && (!index || frame.left >= controls[index - 1].right)))) &&
           (!compact || datesFit) && getComputedStyle(document.getElementById('graphStartDate')).opacity === (compact ? '0' : '1');
       }, true), 'Graph toolbar must fit at width ' + width);
-      assert.deepEqual(await page.locator('#summaryChart').evaluate(canvas => Chart.getChart(canvas).data.datasets.map(dataset => dataset.data)), [[0, 10, 0], [0, 2, 0], [0, 8, 8], [null, null, null]]);
+      assert.deepEqual(await page.locator('#summaryChart').evaluate(canvas => Chart.getChart(canvas).data.datasets.map(dataset => dataset.data)), [[0, 10, 0], [0, 2, 0], [0, 8, 8]]);
       assert.equal(await page.locator('#graphStartDateText').textContent(), '26/09/10');
       assert.equal(await page.locator('#graphEndDateText').textContent(), '26/09/12');
       if (process.env.QA_ARTIFACTS && [320, 390, 1280].includes(width)) {

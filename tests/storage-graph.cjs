@@ -9,6 +9,7 @@ async function testStorageGraph(browser, scenario, unlocked) {
   backend.db.black_garlic_storage_types.push(
     { id: 'storage-2', type_name: '\u9078\u5225(\u826f)', active: true, display_order: 2 },
     { id: 'storage-3', type_name: '\u3080\u304d\u9ed2', active: true, display_order: 3 },
+    { id: 'storage-4', type_name: 'S\u7389', active: true, display_order: 4 },
     { id: 'storage-hidden', type_name: 'Hidden', active: false, display_order: 4 }
   );
   for (const [id, date, type, columns, pieces, time] of [
@@ -46,22 +47,22 @@ async function testStorageGraph(browser, scenario, unlocked) {
     assert.equal(await page.locator('#storageGraphStyle').inputValue(), 'line');
     assert.equal(await page.locator('#storageGraphType').isDisabled(), true);
     assert.deepEqual(await page.locator('#storageGraphType option').evaluateAll(options => options.map(option => option.value)), ['All']);
-    for (const id of ['storageGraphType2', 'storageGraphType3', 'storageGraphType4']) {
-      assert.deepEqual(await page.locator('#' + id + ' option').evaluateAll(options => options.map(option => option.value)), ['', 'storage', 'storage-2', 'storage-3']);
+    for (const id of ['storageGraphType2', 'storageGraphType3', 'storageGraphType4', 'storageGraphType5']) {
+      assert.deepEqual(await page.locator('#' + id + ' option').evaluateAll(options => options.map(option => option.value)), ['', 'storage', 'storage-2', 'storage-3', 'storage-4']);
     }
-    assert.deepEqual(await page.locator('.storage-graph-series-kind select').evaluateAll(selects => selects.map(select => select.value)), ['All', 'storage', 'storage-2', 'storage-3']);
+    assert.deepEqual(await page.locator('.storage-graph-series-kind select').evaluateAll(selects => selects.map(select => select.value)), ['All', 'storage', 'storage-2', 'storage-3', 'storage-4']);
     const reads = backend.reads.length;
     await period('2026-09-09', '2026-09-13');
     assert.deepEqual(await data(), [10, 12.5, 7, 7, null]);
     assert.deepEqual(await page.locator('#storageSummaryChart').evaluate(canvas => Chart.getChart(canvas).data.datasets.map(dataset => dataset.data)), [
-      [10, 12.5, 7, 7, null], [10, 10, 4.5, 4.5, null], [null, 2.5, 2.5, 2.5, null], [null, null, null, null, null]
+      [10, 12.5, 7, 7, null], [10, 10, 4.5, 4.5, null], [null, 2.5, 2.5, 2.5, null], [null, null, null, null, null], [null, null, null, null, null]
     ]);
     assert.equal(await page.locator('#storageGraphStatus').isVisible(), false);
     assert.equal(await page.locator('#storageGraphPrintTitle').isVisible(), false);
     assert.ok(await page.locator('#storageSummaryChart').evaluate(canvas => {
       const chart = Chart.getChart(canvas);
       const dataset = chart.data.datasets[0];
-      return dataset.borderColor === '#28a745' && chart.options.scales.y.title.text === '\u4fdd\u7ba1\u6570(\u5217)' &&
+      return dataset.borderColor === '#000000' && dataset.backgroundColor === '#000000' && chart.options.scales.y.title.text === '\u4fdd\u7ba1\u6570(\u5217)' &&
         chart.options.plugins.tooltip.callbacks.label({ dataset, formattedValue: '7' }) === '\u5168\u4f53: 7\u5217';
     }));
     for (const [type, expected] of [
@@ -76,8 +77,12 @@ async function testStorageGraph(browser, scenario, unlocked) {
       assert.equal(await page.locator('#storageGraphStatus').isVisible(), false);
     }
     await page.locator('#storageGraphType2').selectOption('storage');
-    const styles = ['storageGraphStyle', 'storageGraphStyle2', 'storageGraphStyle3', 'storageGraphStyle4'];
-    for (let combination = 0; combination < 16; combination++) {
+    await page.locator('#storageGraphType5').selectOption('storage-2');
+    assert.deepEqual(await page.locator('#storageSummaryChart').evaluate(canvas => Chart.getChart(canvas).data.datasets[4].data), [null, 2.5, 2.5, 2.5, null]);
+    assert.deepEqual(await data(), [10, 12.5, 7, 7, null]);
+    await page.locator('#storageGraphType5').selectOption('storage-4');
+    const styles = ['storageGraphStyle', 'storageGraphStyle2', 'storageGraphStyle3', 'storageGraphStyle4', 'storageGraphStyle5'];
+    for (let combination = 0; combination < 32; combination++) {
       const values = styles.map((id, index) => combination & (1 << index) ? 'bar' : 'line');
       for (const [index, id] of styles.entries()) await page.locator('#' + id).selectOption(values[index]);
       assert.deepEqual(await page.locator('#storageSummaryChart').evaluate(canvas => Chart.getChart(canvas).data.datasets.map((dataset, index) => Chart.getChart(canvas).getDatasetMeta(index).type)), values);
@@ -104,11 +109,12 @@ async function testStorageGraph(browser, scenario, unlocked) {
         const toolbar = document.querySelector('.storage-graph-toolbar').getBoundingClientRect();
         const bounds = controls.getBoundingClientRect();
         const kinds = [...controls.querySelectorAll('.storage-graph-series-kind select')].map(select => select.getBoundingClientRect());
-        const styles = ['storageGraphStyle', 'storageGraphStyle2', 'storageGraphStyle3', 'storageGraphStyle4'].map(id => document.getElementById(id).getBoundingClientRect());
-        return bounds.top >= toolbar.bottom + 7 && controls.scrollWidth <= controls.clientWidth && kinds.length === 4 &&
-          kinds.every((frame, index) => frame.left >= bounds.left && frame.right <= bounds.right + 1 && Math.abs(frame.top - kinds[0].top) < 1 &&
-            styles[index].top > frame.bottom && styles[index].width >= frame.width && styles[index].right <= bounds.right + 1);
-      }), 'Four series on second row at width ' + width);
+        const styles = ['storageGraphStyle', 'storageGraphStyle2', 'storageGraphStyle3', 'storageGraphStyle4', 'storageGraphStyle5'].map(id => document.getElementById(id).getBoundingClientRect());
+        return bounds.top >= toolbar.bottom + 7 && controls.scrollWidth <= controls.clientWidth && kinds.length === 5 &&
+          kinds.every((frame, index) => frame.left >= bounds.left && frame.right <= bounds.right + 1 &&
+            Math.abs(frame.top - kinds[innerWidth <= 460 && index ? 1 : 0].top) < 1 &&
+            styles[index].right <= bounds.right + 1 && (innerWidth <= 460 && !index ? Math.abs(styles[index].top - frame.top) < 1 : styles[index].top > frame.bottom));
+      }), 'Five series controls fit at width ' + width);
       assert.ok(await page.locator('.summary-bottom-tabs').evaluate(nav => [...nav.querySelectorAll('button')].every(button => {
         const frame = button.getBoundingClientRect();
         return button.scrollWidth <= button.clientWidth && button.scrollHeight <= button.clientHeight &&
@@ -116,11 +122,11 @@ async function testStorageGraph(browser, scenario, unlocked) {
       })), 'Six tabs at width ' + width);
       assert.ok(await page.locator('#storageSummaryChart').evaluate(canvas => {
         const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
-        let green = 0;
+        let black = 0;
         for (let index = 0; index < pixels.length; index += 4) {
-          if (Math.abs(pixels[index] - 40) < 3 && Math.abs(pixels[index + 1] - 167) < 3 && Math.abs(pixels[index + 2] - 69) < 3 && pixels[index + 3] > 100) green++;
+          if (pixels[index] < 3 && pixels[index + 1] < 3 && pixels[index + 2] < 3 && pixels[index + 3] > 100) black++;
         }
-        return green > 100 && Chart.getChart(canvas).getDatasetMeta(0).data[4].skip;
+        return black > 100 && Chart.getChart(canvas).getDatasetMeta(0).data[4].skip;
       }));
       if (process.env.QA_ARTIFACTS && [320, 390, 1280].includes(width)) await page.screenshot({ path: path.join(process.env.QA_ARTIFACTS, 'storage-graph-' + width + '.png') });
     }
@@ -144,7 +150,7 @@ async function testStorageGraph(browser, scenario, unlocked) {
     assert.equal(await page.locator('#graphFullscreenDialog').evaluate(dialog => dialog.open), false);
     assert.equal(await page.locator('#summaryPanel #storageGraphSummary').count(), 1);
     assert.equal(await page.locator('#storageGraphPrintTitle').isVisible(), true);
-    assert.equal(await page.locator('#storageGraphPrintTitle').textContent(), '\u30b0\u30e9\u30d5(\u4fdd\u7ba1\u5eab) \u5168\u4f53\u30fb\u30a8\u30a4\u30c8R7\u30fb\u9078\u5225(\u826f)\u30fb\u3080\u304d\u9ed2 2026-09-09\u301c2026-09-13');
+    assert.equal(await page.locator('#storageGraphPrintTitle').textContent(), '\u30b0\u30e9\u30d5(\u4fdd\u7ba1\u5eab) \u5168\u4f53\u30fb\u30a8\u30a4\u30c8R7\u30fb\u9078\u5225(\u826f)\u30fb\u3080\u304d\u9ed2\u30fbS\u7389 2026-09-09\u301c2026-09-13');
     assert.equal(await page.locator('#summaryPanel .summary-view:visible').count(), 1);
     assert.equal(await page.locator('#summaryPanel canvas:visible').count(), 1);
     assert.equal(await page.locator('.summary-bottom-tabs').isVisible(), false);
@@ -172,7 +178,7 @@ async function testStorageGraph(browser, scenario, unlocked) {
     await page.waitForFunction(() => !document.querySelector('#reloadBtn').disabled);
     assert.deepEqual(await data(), [1.25, 1.25]);
     assert.equal(await page.locator('#storageGraphType3').inputValue(), '');
-    assert.deepEqual(await page.locator('#storageGraphType3 option').evaluateAll(options => options.map(option => option.value)), ['', 'storage', 'storage-3']);
+    assert.deepEqual(await page.locator('#storageGraphType3 option').evaluateAll(options => options.map(option => option.value)), ['', 'storage', 'storage-3', 'storage-4']);
     backend.db.black_garlic_storage_types.find(type => type.id === 'storage-2').active = true;
     await page.locator('#reloadBtn').click();
     await page.waitForFunction(() => !document.querySelector('#reloadBtn').disabled);

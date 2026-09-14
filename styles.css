@@ -869,7 +869,7 @@ body.summary-graph-active #summaryMetricControls {
 
 .graph-series-controls {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -892,20 +892,26 @@ body.summary-graph-active #summaryMetricControls {
 .graph-in-series .graph-series-swatch { background: var(--in-color); }
 .graph-out-series .graph-series-swatch { background: var(--out-color); }
 .graph-inventory-series .graph-series-swatch { background: #28a745; }
-.graph-capacity-series .graph-series-swatch { background: #000000; }
 
-.storage-graph-series-controls { gap: 4px; }
+.storage-graph-series-controls { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
 .storage-graph-series-kind { position: relative; display: flex; align-items: center; gap: 2px; min-width: 0; margin-bottom: 4px; }
 .storage-graph-series-controls .storage-graph-series-kind select { min-width: 0; appearance: none; padding: 4px 11px 4px 1px; }
 .storage-graph-series-kind .graph-series-swatch { width: 8px; height: 8px; flex-basis: 8px; }
 .storage-graph-series-kind > svg { position: absolute; right: 1px; top: 50%; width: 8px; height: 8px; transform: translateY(-50%); pointer-events: none; }
-.storage-series-1 .graph-series-swatch { background: #28a745; }
+.storage-series-1 .graph-series-swatch { background: #000000; }
 .storage-series-2 .graph-series-swatch { background: #007bff; }
 .storage-series-3 .graph-series-swatch { background: #d9534f; }
 .storage-series-4 .graph-series-swatch { background: #d89a00; }
+.storage-series-5 .graph-series-swatch { background: #28a745; }
 
 .storage-graph-series-controls select { padding: 4px 2px; font-size: 11px; }
 #summaryGraph .graph-series-controls select { font-size: 12px; padding: 4px 2px; }
+
+@media (max-width: 460px) {
+  .storage-graph-series-controls { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .storage-graph-series-controls .storage-series-1 { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; align-items: center; }
+  .storage-series-1 .storage-graph-series-kind { margin-bottom: 0; }
+}
 
 .storage-graph-print-title { display: none; }
 
@@ -916,7 +922,6 @@ body.summary-graph-active #summaryMetricControls {
   color: var(--warn);
 }
 
-#summaryGraph:has(#graphCapacityStatus:not([hidden])) { gap: 4px; }
 
 #summaryGraph .chart-box,
 #storageGraphSummary .chart-box,
