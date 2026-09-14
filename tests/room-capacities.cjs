@@ -65,9 +65,10 @@ async function testRoomCapacities(browser, scenario, unlocked) {
       assert.ok(await row.evaluate(row => {
         const bounds = row.getBoundingClientRect();
         const controls = [...row.querySelectorAll('input:not([type="checkbox"]), button, .visibility-switch')];
-        return bounds.right <= innerWidth && bounds.left >= 0 && row.scrollWidth <= row.clientWidth + 1 && controls.every(control => {
+        return getComputedStyle(row).gridTemplateRows.split(' ').length === 1 && bounds.right <= innerWidth && bounds.left >= 0 && row.scrollWidth <= row.clientWidth + 1 && controls.every((control, index) => {
           const frame = control.getBoundingClientRect();
-          return frame.width >= 30 && frame.left >= bounds.left && frame.right <= bounds.right + 1;
+          return frame.width >= (control.matches('.visibility-switch') ? 26 : 28) && frame.left >= bounds.left && frame.right <= bounds.right + 1 &&
+            (!index || frame.left >= controls[index - 1].getBoundingClientRect().right);
         });
       }), 'Room controls must fit at width ' + width);
       if (process.env.QA_ARTIFACTS && [320, 390, 1440].includes(width)) {

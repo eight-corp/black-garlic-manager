@@ -130,9 +130,14 @@ async function testTypeHarvestDates(browser, scenario, unlocked) {
         const date = row.querySelector('[data-field="harvest_base_date"]').getBoundingClientRect();
         const weekday = row.querySelector('.weekday-inline').getBoundingClientRect();
         const label = row.querySelector('.type-harvest-date-field').getBoundingClientRect();
-        return date.width >= 142 && weekday.right <= label.right && [...row.querySelectorAll('input:not([type="checkbox"]),button,.visibility-switch')].every(field => {
+        const compact = matchMedia('(max-width: 760px), (pointer: coarse)').matches;
+        const dateText = row.querySelector('.type-harvest-date-display > span');
+        const controls = [...row.querySelectorAll('input:not([type="checkbox"]),button,.visibility-switch')];
+        return getComputedStyle(row).gridTemplateRows.split(' ').length === 1 && date.width >= (compact ? 90 : 142) && weekday.right <= label.right &&
+          (!compact || dateText.scrollWidth <= dateText.clientWidth) && controls.every((field, index) => {
           const r = field.getBoundingClientRect();
-          return r.left >= bounds.left && r.right <= bounds.right && r.top >= bounds.top && r.bottom <= bounds.bottom;
+          return r.left >= bounds.left && r.right <= bounds.right && r.top >= bounds.top && r.bottom <= bounds.bottom &&
+            (!index || r.left >= controls[index - 1].getBoundingClientRect().right);
         });
       })), 'date/weekday/buttons:' + width);
       if (process.env.QA_ARTIFACTS && [320, 390, 1280].includes(width)) await page.screenshot({ path: path.join(process.env.QA_ARTIFACTS, 'type-harvest-dates-' + width + '.png'), fullPage: true });

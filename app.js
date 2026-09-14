@@ -190,7 +190,7 @@
       if (!row) return;
       const index = Number(row.dataset.index);
       state.drafts.types[index].harvest_base_date = event.target.value;
-      updateDateWeekday(`typeHarvestBaseDate-${index}`, `typeHarvestBaseDateWeekday-${index}`);
+      updateTypeHarvestDate(index);
     });
     $("masterSaveBtn").addEventListener("click", () => saveMaster().catch(showError));
   }
@@ -1165,7 +1165,7 @@
     );
     renderRoomAndTypeMaster(openSections);
     state.drafts.types.forEach((row, index) => {
-      updateDateWeekday(`typeHarvestBaseDate-${index}`, `typeHarvestBaseDateWeekday-${index}`);
+      updateTypeHarvestDate(index);
     });
     fitResponsiveTables($("masterPanel"));
     createIcons();
@@ -1192,7 +1192,7 @@
                 <span class="master-index">${index + 1}</span>
                 <input data-field="${nameKey}" value="${esc(row[nameKey] || "")}" placeholder="${esc(label)}">
                 ${draftKey === "rooms" ? `<label class="room-capacity-field" title="在庫と同じ数量単位の目安。超過しても登録できます。"><span>収容能力</span><input data-field="capacity_qty" type="number" min="0" step="0.01" inputmode="decimal" value="${esc(row.capacity_qty ?? "")}" placeholder="未設定"></label>` : ""}
-                ${draftKey === "types" ? `<label class="type-harvest-date-field"><span>収穫基準日<span id="typeHarvestBaseDateWeekday-${index}" class="weekday-inline"></span></span><input id="typeHarvestBaseDate-${index}" data-field="harvest_base_date" type="date" value="${esc(row.harvest_base_date || "")}"></label>` : ""}
+                ${draftKey === "types" ? `<label class="type-harvest-date-field"><span>収穫基準日<span id="typeHarvestBaseDateWeekday-${index}" class="weekday-inline"></span></span><span class="type-harvest-date-input"><input id="typeHarvestBaseDate-${index}" data-field="harvest_base_date" type="date" value="${esc(row.harvest_base_date || "")}"><span class="type-harvest-date-display" aria-hidden="true"><span id="typeHarvestBaseDateText-${index}"></span><i data-lucide="calendar"></i></span></span></label>` : ""}
                 <button type="button" class="secondary icon-btn" data-master-action="up" title="上へ"><i data-lucide="arrow-up"></i></button>
                 <button type="button" class="secondary icon-btn" data-master-action="down" title="下へ"><i data-lucide="arrow-down"></i></button>
                 ${showVisibility ? visibilitySwitch(row.active !== false) : ""}
@@ -1261,6 +1261,14 @@
 
   function handleMasterClick(event) {
     if (!can("admin")) return;
+    if (event.target.matches('.type-harvest-date-input input[type="date"]')) {
+      try {
+        event.target.showPicker?.();
+      } catch (error) {
+        // Keep the native picker available when explicit picker control is unsupported.
+      }
+      return;
+    }
     const button = event.target.closest("[data-master-action]");
     if (!button) return;
     collectMasterInputs();
@@ -1695,6 +1703,16 @@
 
   function updateMainDateWeekday() {
     updateDateWeekday("mainDate", "mainDateWeekday");
+  }
+
+  function updateTypeHarvestDate(index) {
+    const id = `typeHarvestBaseDate-${index}`;
+    const input = $(id);
+    updateDateWeekday(id, `typeHarvestBaseDateWeekday-${index}`);
+    $(`typeHarvestBaseDateText-${index}`).textContent = input.value
+      ? `${compactGraphDateFormat.format(parseYmd(input.value))}(${weekdayLabel(input.value).charAt(0)})`
+      : "未設定";
+    input.title = input.value ? `${input.value}（${weekdayLabel(input.value)}）` : "収穫基準日 未設定";
   }
 
   function updateDateWeekday(dateInputId, weekdayOutputId) {

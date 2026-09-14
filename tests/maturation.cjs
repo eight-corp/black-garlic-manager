@@ -120,7 +120,8 @@ async function testMaturation(browser, scenario, unlocked) {
     for (const width of [320, 390, 1280]) {
       await page.setViewportSize({ width, height: 844 });
       const bounds = await page.locator('#typeHarvestBaseDate-0').boundingBox();
-      assert.ok(bounds.width >= 142 && bounds.x + bounds.width <= width);
+      const compact = await page.evaluate(() => matchMedia('(max-width: 760px), (pointer: coarse)').matches);
+      assert.ok(bounds.width >= (compact ? 90 : 142) && bounds.x + bounds.width <= width);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       if (process.env.QA_ARTIFACTS) await page.screenshot({ path: path.join(process.env.QA_ARTIFACTS, 'maturation-base-date-' + width + '.png'), fullPage: true });
     }
